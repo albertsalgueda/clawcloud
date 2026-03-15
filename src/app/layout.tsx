@@ -4,8 +4,8 @@ import { Toaster } from '@/components/ui/sonner'
 import './globals.css'
 
 export const metadata: Metadata = {
-  title: 'ClawCloud',
-  description: 'Managed OpenClaw instances with AI billing',
+  title: 'Agent Computers',
+  description: 'Managed cloud hosting for AI coding agents',
 }
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

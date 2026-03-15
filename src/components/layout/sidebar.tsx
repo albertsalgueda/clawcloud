@@ -1,21 +1,25 @@
 'use client'
 
 import Link from 'next/link'
-import { usePathname } from 'next/navigation'
-import { Server, CreditCard, Settings, ExternalLink, Plus, PanelLeft, ChevronLeft, ChevronRight } from 'lucide-react'
+import { usePathname, useParams } from 'next/navigation'
+import { Server, CreditCard, Settings, ExternalLink, Plus, PanelLeft, ChevronLeft, ChevronRight, Users } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { useSidebarState } from './sidebar-state'
-
-const navItems = [
-  { label: 'Instances', href: '/instances', icon: Server },
-  { label: 'Billing', href: '/billing', icon: CreditCard },
-  { label: 'Settings', href: '/settings', icon: Settings },
-]
+import { OrgSwitcher } from './org-switcher'
 
 export function Sidebar() {
   const pathname = usePathname()
+  const params = useParams<{ orgSlug: string }>()
   const { collapsed, toggleCollapsed } = useSidebarState()
+  const orgSlug = params.orgSlug ?? ''
+
+  const navItems = [
+    { label: 'Instances', href: `/${orgSlug}/instances`, icon: Server },
+    { label: 'Billing', href: `/${orgSlug}/billing`, icon: CreditCard },
+    { label: 'Team', href: `/${orgSlug}/settings/members`, icon: Users },
+    { label: 'Settings', href: `/settings`, icon: Settings },
+  ]
 
   return (
     <aside
@@ -28,7 +32,7 @@ export function Sidebar() {
         <div className={cn('flex items-center px-2 py-2', collapsed ? 'justify-center' : 'justify-between gap-2')}>
           <div className={cn('flex items-center gap-2 min-w-0', collapsed && 'justify-center')}>
             <PanelLeft className="h-4 w-4 shrink-0 text-muted-foreground" />
-            {!collapsed && <span className="truncate text-sm font-medium">ClawCloud</span>}
+            {!collapsed && <span className="truncate text-sm font-medium">AC</span>}
           </div>
           <Button
             type="button"
@@ -42,8 +46,11 @@ export function Sidebar() {
             {collapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronLeft className="h-4 w-4" />}
           </Button>
         </div>
+        <div className="mt-2">
+          <OrgSwitcher collapsed={collapsed} />
+        </div>
         <Link
-          href="/instances/new"
+          href={`/${orgSlug}/instances/new`}
           className={cn(
             'mt-3 flex rounded-xl border border-border bg-card py-2.5 text-sm font-medium transition-colors hover:bg-accent',
             collapsed ? 'justify-center px-0' : 'items-center gap-2 px-3'
@@ -73,11 +80,6 @@ export function Sidebar() {
             )
           })}
         </nav>
-        {!collapsed && (
-          <div className="mt-6 px-3 text-xs text-muted-foreground">
-            Managed OpenClaw instances and billing in one workspace.
-          </div>
-        )}
         <div className="mt-auto border-t border-border pt-3">
           <a
             href="https://docs.clawcloud.dev"

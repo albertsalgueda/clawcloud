@@ -75,7 +75,7 @@ export default function SignupPage() {
     <Card>
       <CardHeader className="text-center">
         <CardTitle className="text-2xl font-bold">Create an account</CardTitle>
-        <CardDescription>Sign up for your ClawCloud account</CardDescription>
+        <CardDescription>Sign up for your Agent Computers account</CardDescription>
       </CardHeader>
       <CardContent>
         <form onSubmit={handleSignup} className="space-y-4">

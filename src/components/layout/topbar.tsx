@@ -14,16 +14,16 @@ import { User, LogOut, ChevronLeft, ChevronRight } from 'lucide-react'
 import { MobileNav } from './mobile-nav'
 import { useSidebarState } from './sidebar-state'
 
-const pageTitles: Record<string, string> = {
-  '/instances': 'Instances',
-  '/instances/new': 'Create Instance',
-  '/billing': 'Billing',
-  '/settings': 'Settings',
-}
-
 function getPageTitle(pathname: string) {
-  if (pageTitles[pathname]) return pageTitles[pathname]
-  if (pathname.startsWith('/instances/')) return 'Instance'
+  const segments = pathname.split('/').filter(Boolean)
+  if (segments.length >= 2 && segments[1] === 'instances') {
+    if (segments[2] === 'new') return 'Create Instance'
+    if (segments.length >= 3) return 'Instance'
+    return 'Instances'
+  }
+  if (segments.includes('billing')) return 'Billing'
+  if (segments.includes('members')) return 'Team'
+  if (segments.includes('settings')) return 'Settings'
   return ''
 }
 
@@ -45,7 +45,7 @@ export function Topbar() {
       <div className="flex min-h-14 items-center gap-3">
         <div className="flex items-center gap-3 lg:hidden">
           <MobileNav />
-          <span className="font-medium">ClawCloud</span>
+          <span className="font-medium">AC</span>
         </div>
 
         <div className="hidden items-center gap-2 lg:flex">
@@ -72,7 +72,7 @@ export function Topbar() {
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-48">
               <DropdownMenuItem className="text-xs text-muted-foreground focus:bg-transparent" disabled>
-                demo@clawcloud.dev
+                Account
               </DropdownMenuItem>
               <DropdownMenuSeparator />
               <DropdownMenuItem onClick={handleSignOut}>

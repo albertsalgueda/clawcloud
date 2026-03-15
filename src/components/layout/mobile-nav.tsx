@@ -2,21 +2,25 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
-import { usePathname } from 'next/navigation'
+import { usePathname, useParams } from 'next/navigation'
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet'
 import { Button } from '@/components/ui/button'
-import { Menu, Server, CreditCard, Settings, ExternalLink, Plus } from 'lucide-react'
+import { Menu, Server, CreditCard, Settings, ExternalLink, Plus, Users } from 'lucide-react'
 import { cn } from '@/lib/utils'
-
-const navItems = [
-  { label: 'Instances', href: '/instances', icon: Server },
-  { label: 'Billing', href: '/billing', icon: CreditCard },
-  { label: 'Settings', href: '/settings', icon: Settings },
-]
+import { OrgSwitcher } from './org-switcher'
 
 export function MobileNav() {
   const [open, setOpen] = useState(false)
   const pathname = usePathname()
+  const params = useParams<{ orgSlug: string }>()
+  const orgSlug = params.orgSlug ?? ''
+
+  const navItems = [
+    { label: 'Instances', href: `/${orgSlug}/instances`, icon: Server },
+    { label: 'Billing', href: `/${orgSlug}/billing`, icon: CreditCard },
+    { label: 'Team', href: `/${orgSlug}/settings/members`, icon: Users },
+    { label: 'Settings', href: `/settings`, icon: Settings },
+  ]
 
   return (
     <Sheet open={open} onOpenChange={setOpen}>
@@ -27,9 +31,12 @@ export function MobileNav() {
       </SheetTrigger>
       <SheetContent side="left" className="w-72 border-border bg-sidebar p-0">
         <div className="flex h-full flex-col p-3">
-          <div className="px-2 py-2 text-sm font-medium">ClawCloud</div>
+          <div className="px-2 py-2 text-sm font-medium">Agent Computers</div>
+          <div className="mt-2">
+            <OrgSwitcher collapsed={false} />
+          </div>
           <Link
-            href="/instances/new"
+            href={`/${orgSlug}/instances/new`}
             onClick={() => setOpen(false)}
             className="mt-2 flex items-center gap-2 rounded-xl border border-border bg-card px-3 py-2.5 text-sm font-medium"
           >
