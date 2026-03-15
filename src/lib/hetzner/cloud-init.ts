@@ -9,7 +9,14 @@ interface CloudInitParams {
   sshPublicKey?: string
 }
 
+function indent(text: string, spaces: number): string {
+  const pad = ' '.repeat(spaces)
+  return text.split('\n').map(line => pad + line).join('\n')
+}
+
 export function generateCloudInit(params: CloudInitParams): string {
+  const indentedConfig = indent(params.openclawConfig, 6)
+
   return `#cloud-config
 package_update: true
 packages:
@@ -23,8 +30,7 @@ users:
     shell: /bin/bash
     groups: docker
     sudo: ALL=(ALL) NOPASSWD:ALL
-    ssh_authorized_keys:
-      - ${params.sshPublicKey ?? ''}
+${params.sshPublicKey ? `    ssh_authorized_keys:\n      - ${params.sshPublicKey}` : ''}
 
 write_files:
   - path: /opt/openclaw/.env
@@ -40,7 +46,7 @@ write_files:
   - path: /opt/openclaw/openclaw.json
     permissions: '0644'
     content: |
-      ${params.openclawConfig}
+${indentedConfig}
 
   - path: /opt/openclaw/docker-compose.yml
     permissions: '0644'
