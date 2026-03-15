@@ -26,6 +26,10 @@ export function CreateInstanceForm() {
       toast.error('Name is required')
       return
     }
+    if (!params.orgSlug) {
+      toast.error('Organization not found. Please refresh the page.')
+      return
+    }
     setLoading(true)
 
     try {
@@ -42,8 +46,13 @@ export function CreateInstanceForm() {
         return
       }
 
-      toast.success('Instance created! Provisioning...')
-      router.push(`/${params.orgSlug}/instances/${data.instance.id}`)
+      if (data.checkoutUrl) {
+        toast.success('Redirecting to payment...')
+        window.location.href = data.checkoutUrl
+      } else {
+        toast.success('Instance created! Provisioning...')
+        router.push(`/${params.orgSlug}/instances/${data.instance.id}`)
+      }
     } catch {
       toast.error('Failed to create instance')
     } finally {

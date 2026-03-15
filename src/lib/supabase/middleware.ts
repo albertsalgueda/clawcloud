@@ -46,7 +46,7 @@ export async function updateSession(request: NextRequest) {
   if (user && isAuthRoute) {
     const orgSlug = request.cookies.get('clawcloud-org')?.value
     const url = request.nextUrl.clone()
-    url.pathname = orgSlug ? `/${orgSlug}/instances` : '/instances'
+    url.pathname = orgSlug ? `/${orgSlug}/instances` : '/'
     return NextResponse.redirect(url)
   }
 

@@ -1,9 +1,14 @@
 import Stripe from 'stripe'
+import { stripe } from './client'
 import { supabaseAdmin } from '@/lib/supabase/admin'
 import { serverAction } from '@/lib/hetzner/servers'
+import { provisionInstance, logInstanceEvent } from '@/lib/control-plane'
+import type { Organization } from '@/lib/auth'
 
 export async function handleStripeEvent(event: Stripe.Event): Promise<void> {
   switch (event.type) {
+    case 'checkout.session.completed':
+      return handleCheckoutCompleted(event.data.object as Stripe.Checkout.Session)
     case 'customer.subscription.created':
       return handleSubscriptionCreated(event.data.object as Stripe.Subscription)
     case 'customer.subscription.updated':
@@ -19,6 +24,67 @@ export async function handleStripeEvent(event: Stripe.Event): Promise<void> {
     case 'billing.meter.deactivated':
     case 'billing.meter.reactivated':
       return handleBillingMeterEvent(event)
+  }
+}
+
+async function handleCheckoutCompleted(session: Stripe.Checkout.Session): Promise<void> {
+  const instanceId = session.metadata?.instance_id
+  const orgId = session.metadata?.org_id
+  if (!instanceId || !orgId) return
+
+  const subscriptionId = typeof session.subscription === 'string'
+    ? session.subscription
+    : session.subscription?.id
+
+  if (!subscriptionId) {
+    console.error(`Checkout completed but no subscription for instance ${instanceId}`)
+    return
+  }
+
+  const subscription = await stripe.subscriptions.retrieve(subscriptionId)
+
+  await supabaseAdmin
+    .from('instances')
+    .update({
+      status: 'provisioning',
+      stripe_subscription_id: subscription.id,
+      stripe_subscription_item_id: subscription.items.data[0]?.id,
+    })
+    .eq('id', instanceId)
+
+  await logInstanceEvent(instanceId, 'payment_completed', {
+    subscription_id: subscription.id,
+    checkout_session_id: session.id,
+  })
+
+  const { data: instance } = await supabaseAdmin
+    .from('instances')
+    .select('*')
+    .eq('id', instanceId)
+    .single()
+
+  const { data: org } = await supabaseAdmin
+    .from('organizations')
+    .select('*')
+    .eq('id', orgId)
+    .single()
+
+  if (!instance || !org) {
+    console.error(`Cannot provision: instance=${!!instance} org=${!!org}`)
+    return
+  }
+
+  try {
+    await provisionInstance(instance, org as Organization)
+  } catch (err) {
+    console.error('Provisioning failed after checkout:', err)
+    await supabaseAdmin
+      .from('instances')
+      .update({ status: 'error' })
+      .eq('id', instanceId)
+    await logInstanceEvent(instanceId, 'error', {
+      error: err instanceof Error ? err.message : 'Provisioning failed after payment',
+    })
   }
 }
 
@@ -41,12 +107,6 @@ async function handleSubscriptionCreated(sub: Stripe.Subscription): Promise<void
       stripe_subscription_item_id: sub.items.data[0]?.id,
     })
     .eq('id', instanceId)
-
-  await supabaseAdmin.from('instance_events').insert({
-    instance_id: instanceId,
-    event_type: 'created',
-    details: { subscription_id: sub.id },
-  })
 }
 
 async function handleSubscriptionUpdated(sub: Stripe.Subscription): Promise<void> {

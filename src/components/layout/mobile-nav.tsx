@@ -13,14 +13,19 @@ export function MobileNav() {
   const [open, setOpen] = useState(false)
   const pathname = usePathname()
   const params = useParams<{ orgSlug: string }>()
-  const orgSlug = params.orgSlug ?? ''
+  const orgSlug = params.orgSlug
 
-  const navItems = [
-    { label: 'Instances', href: `/${orgSlug}/instances`, icon: Server },
-    { label: 'Billing', href: `/${orgSlug}/billing`, icon: CreditCard },
-    { label: 'Team', href: `/${orgSlug}/settings/members`, icon: Users },
-    { label: 'Settings', href: `/settings`, icon: Settings },
-  ]
+  const navItems = orgSlug
+    ? [
+        { label: 'Instances', href: `/${orgSlug}/instances`, icon: Server },
+        { label: 'Billing', href: `/${orgSlug}/billing`, icon: CreditCard },
+        { label: 'Team', href: `/${orgSlug}/settings/members`, icon: Users },
+        { label: 'Settings', href: `/settings`, icon: Settings },
+      ]
+    : [
+        { label: 'Instances', href: `/instances`, icon: Server },
+        { label: 'Settings', href: `/settings`, icon: Settings },
+      ]
 
   return (
     <Sheet open={open} onOpenChange={setOpen}>
@@ -36,7 +41,7 @@ export function MobileNav() {
             <OrgSwitcher collapsed={false} />
           </div>
           <Link
-            href={`/${orgSlug}/instances/new`}
+            href={orgSlug ? `/${orgSlug}/instances/new` : '/instances/new'}
             onClick={() => setOpen(false)}
             className="mt-2 flex items-center gap-2 rounded-xl border border-border bg-card px-3 py-2.5 text-sm font-medium"
           >

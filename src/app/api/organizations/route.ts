@@ -33,10 +33,6 @@ export async function GET() {
     return NextResponse.json({ error: error.message }, { status: 500 })
   }
 
-  // #region agent log
-  fetch('http://127.0.0.1:7806/ingest/d6f6e5dc-5e2a-4684-afdc-f324e215d821',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'3dde84'},body:JSON.stringify({sessionId:'3dde84',location:'api/organizations/route.ts:GET',message:'Memberships raw data',data:{count:memberships?.length??0,firstRaw:memberships?.[0]??null},timestamp:Date.now(),hypothesisId:'H-E'})}).catch(()=>{});
-  // #endregion
-
   const orgs = memberships?.map(m => ({
     ...m.organizations,
     role: m.role,

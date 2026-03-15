@@ -1,30 +1,38 @@
 import Stripe from 'stripe'
 import { stripe } from './client'
 
-interface CreateSubscriptionParams {
+interface CreateCheckoutParams {
   customerId: string
   priceId: string
-  metadata: {
-    instance_id: string
-    org_id: string
-  }
+  instanceId: string
+  orgId: string
+  orgSlug: string
+  successUrl: string
+  cancelUrl: string
 }
 
-export async function createSubscription(
-  params: CreateSubscriptionParams
-): Promise<Stripe.Subscription> {
-  return stripe.subscriptions.create({
+export async function createInstanceCheckout(
+  params: CreateCheckoutParams
+): Promise<Stripe.Checkout.Session> {
+  return stripe.checkout.sessions.create({
     customer: params.customerId,
-    items: [
-      { price: params.priceId },
+    mode: 'subscription',
+    line_items: [
+      { price: params.priceId, quantity: 1 },
       { price: process.env.STRIPE_PRICE_TOKEN_USAGE! },
     ],
-    metadata: params.metadata,
-    payment_behavior: 'default_incomplete',
-    payment_settings: {
-      save_default_payment_method: 'on_subscription',
+    subscription_data: {
+      metadata: {
+        instance_id: params.instanceId,
+        org_id: params.orgId,
+      },
     },
-    expand: ['latest_invoice.payment_intent'],
+    success_url: params.successUrl,
+    cancel_url: params.cancelUrl,
+    metadata: {
+      instance_id: params.instanceId,
+      org_id: params.orgId,
+    },
   })
 }
 

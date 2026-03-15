@@ -15,6 +15,7 @@ export function InstanceCard({ instance }: { instance: Instance }) {
   const params = useParams<{ orgSlug: string }>()
   const plan = PLANS[instance.plan]
   const region = REGIONS[instance.region]
+  const orgSlug = params.orgSlug
 
   function copyIp() {
     if (instance.ip_address) {
@@ -24,7 +25,7 @@ export function InstanceCard({ instance }: { instance: Instance }) {
   }
 
   return (
-    <Link href={`/${params.orgSlug}/instances/${instance.id}`}>
+    <Link href={orgSlug ? `/${orgSlug}/instances/${instance.id}` : `/instances/${instance.id}`}>
       <Card className="float-in cursor-pointer rounded-2xl border border-border bg-card py-0 transition-colors hover:bg-accent/40">
         <CardHeader className="flex flex-row items-start justify-between space-y-0 border-b border-border py-4">
           <div>

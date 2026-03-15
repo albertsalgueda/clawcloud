@@ -30,7 +30,7 @@ export default function LoginPage() {
       return
     }
 
-    router.push('/instances')
+    router.push('/')
     router.refresh()
   }
 

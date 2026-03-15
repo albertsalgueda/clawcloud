@@ -1,11 +1,76 @@
 -- ============================================================
--- Multi-tenant organization support migration
+-- Clean schema: multi-tenant organization support
+-- Drops all existing tables and recreates from scratch.
 -- ============================================================
 
--- 1. Create org_role enum
+-- Drop old trigger + function
+DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
+DROP FUNCTION IF EXISTS public.handle_new_user();
+
+-- Drop old tables (cascade handles FKs)
+DROP TABLE IF EXISTS instance_events CASCADE;
+DROP TABLE IF EXISTS usage_events CASCADE;
+DROP TABLE IF EXISTS instances CASCADE;
+DROP TABLE IF EXISTS org_members CASCADE;
+DROP TABLE IF EXISTS organizations CASCADE;
+DROP TABLE IF EXISTS customers CASCADE;
+DROP TABLE IF EXISTS profiles CASCADE;
+
+-- Drop old enums (ignore if not exist)
+DROP TYPE IF EXISTS org_role CASCADE;
+DROP TYPE IF EXISTS instance_status CASCADE;
+DROP TYPE IF EXISTS instance_plan CASCADE;
+DROP TYPE IF EXISTS instance_region CASCADE;
+
+-- Drop old trigger function
+DROP FUNCTION IF EXISTS update_updated_at();
+
+-- ============================================================
+-- Helper function
+-- ============================================================
+
+CREATE OR REPLACE FUNCTION update_updated_at()
+RETURNS TRIGGER AS $$
+BEGIN
+  NEW.updated_at = now();
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+-- ============================================================
+-- Enums
+-- ============================================================
+
+CREATE TYPE instance_status AS ENUM (
+  'pending_payment', 'provisioning', 'running', 'stopped', 'error', 'deleting', 'deleted'
+);
+CREATE TYPE instance_plan AS ENUM ('starter', 'pro', 'business');
+CREATE TYPE instance_region AS ENUM ('eu-central', 'eu-west', 'us-east', 'us-west');
 CREATE TYPE org_role AS ENUM ('owner', 'admin', 'member');
 
--- 2. Create organizations table
+-- ============================================================
+-- Profiles (lightweight user record, no billing)
+-- ============================================================
+
+CREATE TABLE public.profiles (
+  id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  auth_user_id  UUID UNIQUE NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  email         TEXT UNIQUE NOT NULL,
+  name          TEXT,
+  created_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at    TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE INDEX idx_profiles_auth ON profiles(auth_user_id);
+
+CREATE TRIGGER profiles_updated_at
+  BEFORE UPDATE ON profiles
+  FOR EACH ROW EXECUTE FUNCTION update_updated_at();
+
+-- ============================================================
+-- Organizations (billing entity, owns instances)
+-- ============================================================
+
 CREATE TABLE public.organizations (
   id                UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   name              TEXT NOT NULL,
@@ -25,18 +90,10 @@ CREATE TRIGGER organizations_updated_at
   BEFORE UPDATE ON organizations
   FOR EACH ROW EXECUTE FUNCTION update_updated_at();
 
--- 3. Rename customers -> profiles and drop billing columns
-ALTER TABLE customers RENAME TO profiles;
+-- ============================================================
+-- Org members (join table with roles)
+-- ============================================================
 
-ALTER TABLE profiles DROP COLUMN IF EXISTS stripe_customer_id;
-ALTER TABLE profiles DROP COLUMN IF EXISTS plan;
-ALTER TABLE profiles DROP COLUMN IF EXISTS max_instances;
-
--- Rename indexes
-ALTER INDEX IF EXISTS idx_customers_auth RENAME TO idx_profiles_auth;
-ALTER INDEX IF EXISTS idx_customers_stripe RENAME TO idx_profiles_stripe_old;
-
--- 4. Create org_members join table
 CREATE TABLE public.org_members (
   id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   org_id      UUID NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
@@ -49,117 +106,135 @@ CREATE TABLE public.org_members (
 CREATE INDEX idx_org_members_org ON org_members(org_id);
 CREATE INDEX idx_org_members_user ON org_members(user_id);
 
--- 5. Migrate existing data: create a personal org for each profile
-INSERT INTO organizations (id, name, slug, stripe_customer_id, plan, max_instances, created_at, updated_at)
-SELECT
-  p.id,
-  COALESCE(NULLIF(p.name, ''), split_part(p.email, '@', 1)) || '''s Org',
-  LOWER(REPLACE(REPLACE(p.id::text, '-', ''), ' ', '-')),
-  NULL,
-  'starter',
-  1,
-  p.created_at,
-  p.updated_at
-FROM profiles p;
+-- ============================================================
+-- Instances (owned by org, created_by tracks the user)
+-- ============================================================
 
--- We need to get stripe_customer_id from the old data. Since we already dropped it,
--- we'll handle this via the instances migration below. For existing stripe data,
--- we use a temp approach: read from instances that have subscriptions.
-
--- Create owner memberships for each profile -> their personal org
-INSERT INTO org_members (org_id, user_id, role)
-SELECT p.id, p.id, 'owner'
-FROM profiles p;
-
--- 6. Add org_id and created_by to instances, migrate data
-ALTER TABLE instances ADD COLUMN org_id UUID REFERENCES organizations(id) ON DELETE CASCADE;
-ALTER TABLE instances ADD COLUMN created_by UUID REFERENCES profiles(id);
-
-UPDATE instances SET org_id = customer_id, created_by = customer_id;
-
-ALTER TABLE instances ALTER COLUMN org_id SET NOT NULL;
-ALTER TABLE instances DROP COLUMN customer_id;
+CREATE TABLE public.instances (
+  id                    UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  org_id                UUID NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+  created_by            UUID REFERENCES profiles(id),
+  name                  TEXT NOT NULL,
+  slug                  TEXT UNIQUE NOT NULL,
+  status                instance_status NOT NULL DEFAULT 'provisioning',
+  plan                  instance_plan NOT NULL DEFAULT 'starter',
+  region                instance_region NOT NULL DEFAULT 'eu-central',
+  hetzner_server_id     BIGINT,
+  hetzner_server_type   TEXT,
+  ip_address            INET,
+  stripe_subscription_id      TEXT,
+  stripe_subscription_item_id TEXT,
+  gateway_token         TEXT,
+  dashboard_url         TEXT,
+  config                JSONB NOT NULL DEFAULT '{}'::jsonb,
+  env_vars              JSONB NOT NULL DEFAULT '{}'::jsonb,
+  provisioned_at        TIMESTAMPTZ,
+  last_health_check     TIMESTAMPTZ,
+  created_at            TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at            TIMESTAMPTZ NOT NULL DEFAULT now()
+);
 
 CREATE INDEX idx_instances_org ON instances(org_id);
 CREATE INDEX idx_instances_created_by ON instances(created_by);
+CREATE INDEX idx_instances_status ON instances(status);
+CREATE INDEX idx_instances_slug ON instances(slug);
 
--- 7. Add org_id to usage_events, migrate data
-ALTER TABLE usage_events ADD COLUMN org_id UUID REFERENCES organizations(id) ON DELETE CASCADE;
+CREATE TRIGGER instances_updated_at
+  BEFORE UPDATE ON instances
+  FOR EACH ROW EXECUTE FUNCTION update_updated_at();
 
-UPDATE usage_events SET org_id = customer_id;
+-- ============================================================
+-- Usage events
+-- ============================================================
 
-ALTER TABLE usage_events ALTER COLUMN org_id SET NOT NULL;
-ALTER TABLE usage_events DROP COLUMN customer_id;
+CREATE TABLE public.usage_events (
+  id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  instance_id   UUID NOT NULL REFERENCES instances(id) ON DELETE CASCADE,
+  org_id        UUID NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+  model         TEXT NOT NULL,
+  input_tokens  INTEGER NOT NULL DEFAULT 0,
+  output_tokens INTEGER NOT NULL DEFAULT 0,
+  cost_usd      NUMERIC(10, 6) NOT NULL DEFAULT 0,
+  billed_usd    NUMERIC(10, 6) NOT NULL DEFAULT 0,
+  stripe_meter_event_id TEXT,
+  created_at    TIMESTAMPTZ NOT NULL DEFAULT now()
+);
 
 CREATE INDEX idx_usage_org ON usage_events(org_id);
+CREATE INDEX idx_usage_instance ON usage_events(instance_id);
+CREATE INDEX idx_usage_created ON usage_events(created_at);
 CREATE INDEX idx_usage_org_period ON usage_events(org_id, created_at);
 
--- 8. Drop old RLS policies
-DROP POLICY IF EXISTS customers_select ON profiles;
-DROP POLICY IF EXISTS customers_update ON profiles;
-DROP POLICY IF EXISTS instances_select ON instances;
-DROP POLICY IF EXISTS instances_insert ON instances;
-DROP POLICY IF EXISTS instances_update ON instances;
-DROP POLICY IF EXISTS instances_delete ON instances;
-DROP POLICY IF EXISTS usage_select ON usage_events;
-DROP POLICY IF EXISTS events_select ON instance_events;
+-- ============================================================
+-- Instance events
+-- ============================================================
 
--- 9. Enable RLS on new tables
+CREATE TABLE public.instance_events (
+  id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  instance_id   UUID NOT NULL REFERENCES instances(id) ON DELETE CASCADE,
+  event_type    TEXT NOT NULL
+    CHECK (event_type IN (
+      'created', 'provisioning', 'provisioned', 'started', 'stopped',
+      'restarted', 'error', 'deleting', 'deleted', 'config_updated',
+      'plan_changed', 'subscription_created', 'server_created', 'dns_created'
+    )),
+  details       JSONB NOT NULL DEFAULT '{}'::jsonb,
+  created_at    TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE INDEX idx_events_instance ON instance_events(instance_id);
+CREATE INDEX idx_events_type ON instance_events(event_type);
+
+-- ============================================================
+-- Row Level Security
+-- ============================================================
+
+ALTER TABLE profiles ENABLE ROW LEVEL SECURITY;
 ALTER TABLE organizations ENABLE ROW LEVEL SECURITY;
 ALTER TABLE org_members ENABLE ROW LEVEL SECURITY;
+ALTER TABLE instances ENABLE ROW LEVEL SECURITY;
+ALTER TABLE usage_events ENABLE ROW LEVEL SECURITY;
+ALTER TABLE instance_events ENABLE ROW LEVEL SECURITY;
 
--- 10. New RLS policies
-
--- Profiles: users can read/update their own profile
+-- Profiles
 CREATE POLICY profiles_select ON profiles
   FOR SELECT USING (auth_user_id = auth.uid());
-
 CREATE POLICY profiles_update ON profiles
   FOR UPDATE USING (auth_user_id = auth.uid());
 
--- Organizations: members can read their orgs
+-- Organizations
 CREATE POLICY orgs_select ON organizations
   FOR SELECT USING (
     id IN (SELECT om.org_id FROM org_members om JOIN profiles p ON om.user_id = p.id WHERE p.auth_user_id = auth.uid())
   );
-
--- Organizations: owners can update
 CREATE POLICY orgs_update ON organizations
   FOR UPDATE USING (
     id IN (SELECT om.org_id FROM org_members om JOIN profiles p ON om.user_id = p.id WHERE p.auth_user_id = auth.uid() AND om.role = 'owner')
   );
 
--- Org members: members can see their org's members
+-- Org members
 CREATE POLICY org_members_select ON org_members
   FOR SELECT USING (
     org_id IN (SELECT om.org_id FROM org_members om JOIN profiles p ON om.user_id = p.id WHERE p.auth_user_id = auth.uid())
   );
-
--- Org members: admins+ can insert members
 CREATE POLICY org_members_insert ON org_members
   FOR INSERT WITH CHECK (
     org_id IN (SELECT om.org_id FROM org_members om JOIN profiles p ON om.user_id = p.id WHERE p.auth_user_id = auth.uid() AND om.role IN ('owner', 'admin'))
   );
-
--- Org members: admins+ can delete members
 CREATE POLICY org_members_delete ON org_members
   FOR DELETE USING (
     org_id IN (SELECT om.org_id FROM org_members om JOIN profiles p ON om.user_id = p.id WHERE p.auth_user_id = auth.uid() AND om.role IN ('owner', 'admin'))
   );
 
--- Instances: org members can read instances in their orgs
+-- Instances
 CREATE POLICY instances_select ON instances
   FOR SELECT USING (
     org_id IN (SELECT om.org_id FROM org_members om JOIN profiles p ON om.user_id = p.id WHERE p.auth_user_id = auth.uid())
   );
-
--- Instances: org members can create instances
 CREATE POLICY instances_insert ON instances
   FOR INSERT WITH CHECK (
     org_id IN (SELECT om.org_id FROM org_members om JOIN profiles p ON om.user_id = p.id WHERE p.auth_user_id = auth.uid())
   );
-
--- Instances: admins+ can update any, members can update own
 CREATE POLICY instances_update ON instances
   FOR UPDATE USING (
     org_id IN (
@@ -168,8 +243,6 @@ CREATE POLICY instances_update ON instances
         AND (om.role IN ('owner', 'admin') OR instances.created_by = p.id)
     )
   );
-
--- Instances: admins+ can delete any, members can delete own
 CREATE POLICY instances_delete ON instances
   FOR DELETE USING (
     org_id IN (
@@ -179,13 +252,13 @@ CREATE POLICY instances_delete ON instances
     )
   );
 
--- Usage events: org members can read
+-- Usage events
 CREATE POLICY usage_select ON usage_events
   FOR SELECT USING (
     org_id IN (SELECT om.org_id FROM org_members om JOIN profiles p ON om.user_id = p.id WHERE p.auth_user_id = auth.uid())
   );
 
--- Instance events: org members can read events for their org's instances
+-- Instance events
 CREATE POLICY events_select ON instance_events
   FOR SELECT USING (
     instance_id IN (
@@ -196,30 +269,41 @@ CREATE POLICY events_select ON instance_events
     )
   );
 
--- 11. Update handle_new_user trigger to create profile + default org + membership
+-- ============================================================
+-- Auto-create profile + org on signup
+-- ============================================================
+
 CREATE OR REPLACE FUNCTION public.handle_new_user()
 RETURNS TRIGGER AS $$
 DECLARE
-  profile_id UUID;
+  new_profile_id UUID;
+  new_org_id UUID;
   org_slug TEXT;
   display_name TEXT;
 BEGIN
-  profile_id := gen_random_uuid();
-  display_name := COALESCE(NULLIF(NEW.raw_user_meta_data->>'full_name', ''), NULLIF(NEW.raw_user_meta_data->>'name', ''), split_part(NEW.email, '@', 1));
-  org_slug := LOWER(REGEXP_REPLACE(REPLACE(display_name, ' ', '-'), '[^a-z0-9-]', '', 'g')) || '-' || SUBSTRING(profile_id::text, 1, 8);
+  new_profile_id := gen_random_uuid();
+  display_name := COALESCE(
+    NULLIF(NEW.raw_user_meta_data->>'full_name', ''),
+    NULLIF(NEW.raw_user_meta_data->>'name', ''),
+    split_part(NEW.email, '@', 1)
+  );
+  org_slug := REGEXP_REPLACE(LOWER(REPLACE(display_name, ' ', '-')), '[^a-z0-9-]', '', 'g')
+    || '-' || SUBSTRING(new_profile_id::text, 1, 8);
 
   INSERT INTO public.profiles (id, auth_user_id, email, name)
-  VALUES (profile_id, NEW.id, NEW.email, display_name);
+  VALUES (new_profile_id, NEW.id, NEW.email, display_name);
 
   INSERT INTO public.organizations (name, slug, plan, max_instances)
   VALUES (display_name || '''s Org', org_slug, 'starter', 1)
-  RETURNING id INTO profile_id;
+  RETURNING id INTO new_org_id;
 
   INSERT INTO public.org_members (org_id, user_id, role)
-  VALUES (profile_id, (SELECT id FROM profiles WHERE auth_user_id = NEW.id), 'owner');
+  VALUES (new_org_id, new_profile_id, 'owner');
 
   RETURN NEW;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
--- Trigger already exists, just replaced the function
+CREATE TRIGGER on_auth_user_created
+  AFTER INSERT ON auth.users
+  FOR EACH ROW EXECUTE FUNCTION public.handle_new_user();

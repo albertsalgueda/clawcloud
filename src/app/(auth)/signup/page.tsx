@@ -55,7 +55,7 @@ export default function SignupPage() {
     }
 
     if (data.session) {
-      router.push('/instances')
+      router.push('/')
       router.refresh()
     } else {
       toast.success('Check your email to confirm your account')

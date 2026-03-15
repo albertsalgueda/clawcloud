@@ -1,9 +1,9 @@
 import { NextResponse } from 'next/server'
 import { requireAuth, canManageInstance } from '@/lib/auth'
 import { supabaseAdmin } from '@/lib/supabase/admin'
-import { provisionInstance, logInstanceEvent } from '@/lib/control-plane'
+import { logInstanceEvent } from '@/lib/control-plane'
 import { PLAN_PRICES } from '@/lib/constants'
-import { createSubscription } from '@/lib/stripe/subscriptions'
+import { createInstanceCheckout } from '@/lib/stripe/subscriptions'
 import { ensureStripeCustomer } from '@/lib/stripe/ensure-customer'
 import { generateSlug } from '@/lib/utils'
 import { z } from 'zod'
@@ -82,7 +82,7 @@ export async function POST(req: Request) {
       slug,
       plan,
       region,
-      status: 'provisioning',
+      status: 'pending_payment',
     })
     .select()
     .single()
@@ -93,51 +93,35 @@ export async function POST(req: Request) {
 
   await logInstanceEvent(instance.id, 'created', { plan, region })
 
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000'
+
   try {
-    const subscription = await createSubscription({
+    const session = await createInstanceCheckout({
       customerId: stripeCustomerId,
       priceId: PLAN_PRICES[plan],
-      metadata: { instance_id: instance.id, org_id: org.id },
+      instanceId: instance.id,
+      orgId: org.id,
+      orgSlug: org.slug,
+      successUrl: `${appUrl}/${org.slug}/instances/${instance.id}?checkout=success`,
+      cancelUrl: `${appUrl}/${org.slug}/instances/new?checkout=cancelled`,
     })
 
-    await supabaseAdmin
-      .from('instances')
-      .update({
-        stripe_subscription_id: subscription.id,
-        stripe_subscription_item_id: subscription.items.data[0]?.id,
-      })
-      .eq('id', instance.id)
-
-    await logInstanceEvent(instance.id, 'subscription_created', {
-      subscription_id: subscription.id,
-    })
+    return NextResponse.json({
+      instance: { ...instance, status: 'pending_payment' },
+      checkoutUrl: session.url,
+    }, { status: 201 })
   } catch (err) {
-    console.error('Subscription creation failed:', err)
+    console.error('Checkout session creation failed:', err)
     await supabaseAdmin
       .from('instances')
       .update({ status: 'error' })
       .eq('id', instance.id)
     await logInstanceEvent(instance.id, 'error', {
-      error: err instanceof Error ? err.message : 'Subscription creation failed',
+      error: err instanceof Error ? err.message : 'Checkout creation failed',
     })
     return NextResponse.json(
-      { error: 'Failed to set up billing. Please check your payment method.' },
-      { status: 402 }
+      { error: 'Failed to set up billing. Please try again.' },
+      { status: 500 }
     )
-  }
-
-  try {
-    await provisionInstance(instance, org)
-    return NextResponse.json({ instance: { ...instance, status: 'provisioning' } }, { status: 201 })
-  } catch (err) {
-    console.error('Provisioning failed:', err)
-    await supabaseAdmin
-      .from('instances')
-      .update({ status: 'error' })
-      .eq('id', instance.id)
-    await logInstanceEvent(instance.id, 'error', {
-      error: err instanceof Error ? err.message : 'Unknown provisioning error',
-    })
-    return NextResponse.json({ instance: { ...instance, status: 'error' } }, { status: 201 })
   }
 }

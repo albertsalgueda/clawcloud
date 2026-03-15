@@ -12,14 +12,19 @@ export function Sidebar() {
   const pathname = usePathname()
   const params = useParams<{ orgSlug: string }>()
   const { collapsed, toggleCollapsed } = useSidebarState()
-  const orgSlug = params.orgSlug ?? ''
+  const orgSlug = params.orgSlug
 
-  const navItems = [
-    { label: 'Instances', href: `/${orgSlug}/instances`, icon: Server },
-    { label: 'Billing', href: `/${orgSlug}/billing`, icon: CreditCard },
-    { label: 'Team', href: `/${orgSlug}/settings/members`, icon: Users },
-    { label: 'Settings', href: `/settings`, icon: Settings },
-  ]
+  const navItems = orgSlug
+    ? [
+        { label: 'Instances', href: `/${orgSlug}/instances`, icon: Server },
+        { label: 'Billing', href: `/${orgSlug}/billing`, icon: CreditCard },
+        { label: 'Team', href: `/${orgSlug}/settings/members`, icon: Users },
+        { label: 'Settings', href: `/settings`, icon: Settings },
+      ]
+    : [
+        { label: 'Instances', href: `/instances`, icon: Server },
+        { label: 'Settings', href: `/settings`, icon: Settings },
+      ]
 
   return (
     <aside
@@ -50,7 +55,7 @@ export function Sidebar() {
           <OrgSwitcher collapsed={collapsed} />
         </div>
         <Link
-          href={`/${orgSlug}/instances/new`}
+          href={orgSlug ? `/${orgSlug}/instances/new` : '/instances/new'}
           className={cn(
             'mt-3 flex rounded-xl border border-border bg-card py-2.5 text-sm font-medium transition-colors hover:bg-accent',
             collapsed ? 'justify-center px-0' : 'items-center gap-2 px-3'

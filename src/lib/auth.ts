@@ -65,20 +65,12 @@ export async function requireAuth(): Promise<AuthContext> {
     .eq('auth_user_id', user.id)
     .single()
 
-  // #region agent log
-  fetch('http://127.0.0.1:7806/ingest/d6f6e5dc-5e2a-4684-afdc-f324e215d821',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'3dde84'},body:JSON.stringify({sessionId:'3dde84',location:'auth.ts:profile-query',message:'Profile lookup result',data:{hasProfile:!!profile,profileError:profileError?.message??null,userId:user.id},timestamp:Date.now(),hypothesisId:'H-A'})}).catch(()=>{});
-  // #endregion
-
   if (profileError || !profile) {
     redirect('/login')
   }
 
   const cookieStore = await cookies()
   const orgSlug = cookieStore.get(ORG_COOKIE)?.value
-
-  // #region agent log
-  fetch('http://127.0.0.1:7806/ingest/d6f6e5dc-5e2a-4684-afdc-f324e215d821',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'3dde84'},body:JSON.stringify({sessionId:'3dde84',location:'auth.ts:cookie-read',message:'Org cookie value',data:{orgSlug:orgSlug??'(none)',profileId:profile.id},timestamp:Date.now(),hypothesisId:'H-B'})}).catch(()=>{});
-  // #endregion
 
   let org: Organization | null = null
   let membership: OrgMembership | null = null
@@ -106,17 +98,13 @@ export async function requireAuth(): Promise<AuthContext> {
   }
 
   if (!org || !membership) {
-    const { data: firstMembership, error: fallbackError } = await supabaseAdmin
+    const { data: firstMembership } = await supabaseAdmin
       .from('org_members')
       .select('*, organizations(*)')
       .eq('user_id', profile.id)
       .order('created_at', { ascending: true })
       .limit(1)
       .single()
-
-    // #region agent log
-    fetch('http://127.0.0.1:7806/ingest/d6f6e5dc-5e2a-4684-afdc-f324e215d821',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'3dde84'},body:JSON.stringify({sessionId:'3dde84',location:'auth.ts:fallback-org',message:'Fallback org lookup',data:{hasMembership:!!firstMembership,hasOrg:!!firstMembership?.organizations,fallbackError:fallbackError?.message??null},timestamp:Date.now(),hypothesisId:'H-B'})}).catch(()=>{});
-    // #endregion
 
     if (!firstMembership || !firstMembership.organizations) {
       redirect('/login')
@@ -131,10 +119,6 @@ export async function requireAuth(): Promise<AuthContext> {
       created_at: firstMembership.created_at,
     } as OrgMembership
   }
-
-  // #region agent log
-  fetch('http://127.0.0.1:7806/ingest/d6f6e5dc-5e2a-4684-afdc-f324e215d821',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'3dde84'},body:JSON.stringify({sessionId:'3dde84',location:'auth.ts:result',message:'requireAuth resolved',data:{orgSlug:org.slug,orgName:org.name,role:membership.role,profileId:profile.id},timestamp:Date.now(),hypothesisId:'H-A,H-B'})}).catch(()=>{});
-  // #endregion
 
   return {
     profile: profile as Profile,

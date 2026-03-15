@@ -45,7 +45,8 @@ export function OrgSwitcher({ collapsed }: { collapsed: boolean }) {
   }
 
   function goToCreateOrg() {
-    router.push(`/${params.orgSlug}/settings?create=true`)
+    const base = params.orgSlug ? `/${params.orgSlug}/settings` : '/settings'
+    router.push(`${base}?create=true`)
   }
 
   if (loading) {
