@@ -1,9 +1,10 @@
 import { NextResponse } from 'next/server'
 import { requireAuth } from '@/lib/auth'
-import { getCustomerUsageSummary } from '@/lib/stripe/usage'
+import { getOrgUsageSummary } from '@/lib/stripe/usage'
+import { syncMeterUsage } from '@/lib/stripe/meter-sync'
 
 export async function GET(req: Request) {
-  const customer = await requireAuth()
+  const { org } = await requireAuth()
   const { searchParams } = new URL(req.url)
   const instanceId = searchParams.get('instanceId') ?? undefined
   const period = searchParams.get('period') ?? 'current'
@@ -21,8 +22,21 @@ export async function GET(req: Request) {
     periodEnd = new Date(year, month, 0, 23, 59, 59)
   }
 
-  const summary = await getCustomerUsageSummary(
-    customer.id,
+  if (org.stripe_customer_id) {
+    try {
+      await syncMeterUsage(
+        org.id,
+        org.stripe_customer_id,
+        periodStart,
+        periodEnd,
+      )
+    } catch (err) {
+      console.error('Meter sync failed (non-blocking):', err)
+    }
+  }
+
+  const summary = await getOrgUsageSummary(
+    org.id,
     periodStart,
     periodEnd,
     instanceId

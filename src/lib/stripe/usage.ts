@@ -19,14 +19,14 @@ export interface UsageSummary {
   }>
 }
 
-export async function getCustomerUsageSummary(
-  customerId: string,
+export async function getOrgUsageSummary(
+  orgId: string,
   periodStart: Date,
   periodEnd: Date,
   instanceId?: string
 ): Promise<UsageSummary> {
   const conditions = [
-    eq(usageEvents.customer_id, customerId),
+    eq(usageEvents.org_id, orgId),
     gte(usageEvents.created_at, periodStart),
     lte(usageEvents.created_at, periodEnd),
   ]

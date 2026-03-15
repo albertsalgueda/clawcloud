@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { requireAuth } from '@/lib/auth'
+import { requireAuth, canManageInstance } from '@/lib/auth'
 import { supabaseAdmin } from '@/lib/supabase/admin'
 import { cancelSubscription } from '@/lib/stripe/subscriptions'
 import { deleteServer } from '@/lib/hetzner/servers'
@@ -10,16 +10,20 @@ export async function GET(
   { params }: { params: Promise<{ instanceId: string }> }
 ) {
   const { instanceId } = await params
-  const customer = await requireAuth()
+  const { profile, org, membership } = await requireAuth()
 
   const { data: instance, error } = await supabaseAdmin
     .from('instances')
     .select('*')
     .eq('id', instanceId)
-    .eq('customer_id', customer.id)
+    .eq('org_id', org.id)
     .single()
 
   if (error || !instance) {
+    return NextResponse.json({ error: 'Instance not found' }, { status: 404 })
+  }
+
+  if (membership.role === 'member' && instance.created_by !== profile.id) {
     return NextResponse.json({ error: 'Instance not found' }, { status: 404 })
   }
 
@@ -31,18 +35,22 @@ export async function PATCH(
   { params }: { params: Promise<{ instanceId: string }> }
 ) {
   const { instanceId } = await params
-  const customer = await requireAuth()
+  const { org, membership } = await requireAuth()
   const body = await req.json()
 
   const { data: existing } = await supabaseAdmin
     .from('instances')
     .select('*')
     .eq('id', instanceId)
-    .eq('customer_id', customer.id)
+    .eq('org_id', org.id)
     .single()
 
   if (!existing) {
     return NextResponse.json({ error: 'Instance not found' }, { status: 404 })
+  }
+
+  if (!canManageInstance(membership, existing)) {
+    return NextResponse.json({ error: 'Insufficient permissions' }, { status: 403 })
   }
 
   const updates: Record<string, unknown> = {}
@@ -71,17 +79,21 @@ export async function DELETE(
   { params }: { params: Promise<{ instanceId: string }> }
 ) {
   const { instanceId } = await params
-  const customer = await requireAuth()
+  const { org, membership } = await requireAuth()
 
   const { data: instance } = await supabaseAdmin
     .from('instances')
     .select('*')
     .eq('id', instanceId)
-    .eq('customer_id', customer.id)
+    .eq('org_id', org.id)
     .single()
 
   if (!instance) {
     return NextResponse.json({ error: 'Instance not found' }, { status: 404 })
+  }
+
+  if (!canManageInstance(membership, instance)) {
+    return NextResponse.json({ error: 'Insufficient permissions' }, { status: 403 })
   }
 
   await supabaseAdmin

@@ -1,6 +1,8 @@
 import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
 
+const STATIC_SEGMENTS = new Set(['instances', 'billing', 'settings', 'api', 'login', 'signup', 'callback', '_next'])
+
 export async function updateSession(request: NextRequest) {
   let supabaseResponse = NextResponse.next({ request })
 
@@ -42,9 +44,25 @@ export async function updateSession(request: NextRequest) {
   }
 
   if (user && isAuthRoute) {
+    const orgSlug = request.cookies.get('clawcloud-org')?.value
     const url = request.nextUrl.clone()
-    url.pathname = '/instances'
+    url.pathname = orgSlug ? `/${orgSlug}/instances` : '/instances'
     return NextResponse.redirect(url)
+  }
+
+  if (user) {
+    const firstSegment = request.nextUrl.pathname.split('/')[1]
+    if (firstSegment && !STATIC_SEGMENTS.has(firstSegment)) {
+      const currentCookie = request.cookies.get('clawcloud-org')?.value
+      if (currentCookie !== firstSegment) {
+        supabaseResponse.cookies.set('clawcloud-org', firstSegment, {
+          path: '/',
+          maxAge: 60 * 60 * 24 * 365,
+          httpOnly: false,
+          sameSite: 'lax',
+        })
+      }
+    }
   }
 
   return supabaseResponse

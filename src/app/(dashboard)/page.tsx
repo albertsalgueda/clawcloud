@@ -1,5 +1,7 @@
+import { requireAuth } from '@/lib/auth'
 import { redirect } from 'next/navigation'
 
-export default function DashboardPage() {
-  redirect('/instances')
+export default async function DashboardPage() {
+  const { org } = await requireAuth()
+  redirect(`/${org.slug}/instances`)
 }

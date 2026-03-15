@@ -14,7 +14,20 @@ export async function handleStripeEvent(event: Stripe.Event): Promise<void> {
       return handleInvoicePaid(event.data.object as Stripe.Invoice)
     case 'invoice.payment_failed':
       return handlePaymentFailed(event.data.object as Stripe.Invoice)
+    case 'billing.meter.created':
+    case 'billing.meter.updated':
+    case 'billing.meter.deactivated':
+    case 'billing.meter.reactivated':
+      return handleBillingMeterEvent(event)
   }
+}
+
+async function handleBillingMeterEvent(event: Stripe.Event): Promise<void> {
+  const meter = event.data.object as { id?: string; display_name?: string; status?: string }
+  console.log(
+    `[stripe:${event.type}] meter=${meter.id ?? 'unknown'} ` +
+    `name="${meter.display_name ?? ''}" status=${meter.status ?? 'n/a'}`
+  )
 }
 
 async function handleSubscriptionCreated(sub: Stripe.Subscription): Promise<void> {
@@ -83,7 +96,7 @@ async function handleInvoicePaid(invoice: Stripe.Invoice): Promise<void> {
   if (!customerId) return
 
   await supabaseAdmin
-    .from('customers')
+    .from('organizations')
     .update({ updated_at: new Date().toISOString() })
     .eq('stripe_customer_id', customerId)
 }
@@ -92,23 +105,23 @@ async function handlePaymentFailed(invoice: Stripe.Invoice): Promise<void> {
   const customerId = typeof invoice.customer === 'string' ? invoice.customer : invoice.customer?.id
   if (!customerId) return
 
-  const { data: customer } = await supabaseAdmin
-    .from('customers')
+  const { data: org } = await supabaseAdmin
+    .from('organizations')
     .select('id')
     .eq('stripe_customer_id', customerId)
     .single()
 
-  if (!customer) return
+  if (!org) return
 
-  const { data: customerInstances } = await supabaseAdmin
+  const { data: orgInstances } = await supabaseAdmin
     .from('instances')
     .select('id, hetzner_server_id')
-    .eq('customer_id', customer.id)
+    .eq('org_id', org.id)
     .eq('status', 'running')
 
-  if (!customerInstances) return
+  if (!orgInstances) return
 
-  for (const inst of customerInstances) {
+  for (const inst of orgInstances) {
     if (inst.hetzner_server_id) {
       try {
         await serverAction(inst.hetzner_server_id, 'shutdown')

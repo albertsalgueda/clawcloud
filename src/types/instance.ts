@@ -4,7 +4,8 @@ export type InstanceRegion = 'eu-central' | 'eu-west'
 
 export interface Instance {
   id: string
-  customer_id: string
+  org_id: string
+  created_by: string | null
   name: string
   slug: string
   status: InstanceStatus

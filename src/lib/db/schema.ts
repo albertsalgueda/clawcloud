@@ -10,6 +10,7 @@ import {
   inet,
   pgEnum,
   index,
+  unique,
 } from 'drizzle-orm/pg-core'
 import { relations } from 'drizzle-orm'
 
@@ -25,21 +26,54 @@ export const instanceRegionEnum = pgEnum('instance_region', [
   'eu-central', 'eu-west', 'us-east', 'us-west',
 ])
 
-export const customers = pgTable('customers', {
+export const orgRoleEnum = pgEnum('org_role', [
+  'owner', 'admin', 'member',
+])
+
+// Profiles (renamed from customers) — lightweight user record
+export const profiles = pgTable('profiles', {
   id: uuid('id').primaryKey().defaultRandom(),
   auth_user_id: uuid('auth_user_id').unique().notNull(),
   email: text('email').unique().notNull(),
   name: text('name'),
+  created_at: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  updated_at: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+}, (table) => [
+  index('idx_profiles_auth').on(table.auth_user_id),
+])
+
+// Organizations — billing entity, owns instances
+export const organizations = pgTable('organizations', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  name: text('name').notNull(),
+  slug: text('slug').unique().notNull(),
   stripe_customer_id: text('stripe_customer_id').unique(),
   plan: text('plan').notNull().default('starter'),
   max_instances: integer('max_instances').notNull().default(1),
   created_at: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   updated_at: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
-})
+}, (table) => [
+  index('idx_organizations_slug').on(table.slug),
+  index('idx_organizations_stripe').on(table.stripe_customer_id),
+])
+
+// Org members — join table with roles
+export const orgMembers = pgTable('org_members', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  org_id: uuid('org_id').notNull().references(() => organizations.id, { onDelete: 'cascade' }),
+  user_id: uuid('user_id').notNull().references(() => profiles.id, { onDelete: 'cascade' }),
+  role: orgRoleEnum('role').notNull().default('member'),
+  created_at: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+}, (table) => [
+  unique('uq_org_members_org_user').on(table.org_id, table.user_id),
+  index('idx_org_members_org').on(table.org_id),
+  index('idx_org_members_user').on(table.user_id),
+])
 
 export const instances = pgTable('instances', {
   id: uuid('id').primaryKey().defaultRandom(),
-  customer_id: uuid('customer_id').notNull().references(() => customers.id, { onDelete: 'cascade' }),
+  org_id: uuid('org_id').notNull().references(() => organizations.id, { onDelete: 'cascade' }),
+  created_by: uuid('created_by').references(() => profiles.id),
   name: text('name').notNull(),
   slug: text('slug').unique().notNull(),
   status: instanceStatusEnum('status').notNull().default('provisioning'),
@@ -59,7 +93,8 @@ export const instances = pgTable('instances', {
   created_at: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   updated_at: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
 }, (table) => [
-  index('idx_instances_customer').on(table.customer_id),
+  index('idx_instances_org').on(table.org_id),
+  index('idx_instances_created_by').on(table.created_by),
   index('idx_instances_status').on(table.status),
   index('idx_instances_slug').on(table.slug),
 ])
@@ -67,7 +102,7 @@ export const instances = pgTable('instances', {
 export const usageEvents = pgTable('usage_events', {
   id: uuid('id').primaryKey().defaultRandom(),
   instance_id: uuid('instance_id').notNull().references(() => instances.id, { onDelete: 'cascade' }),
-  customer_id: uuid('customer_id').notNull().references(() => customers.id, { onDelete: 'cascade' }),
+  org_id: uuid('org_id').notNull().references(() => organizations.id, { onDelete: 'cascade' }),
   model: text('model').notNull(),
   input_tokens: integer('input_tokens').notNull().default(0),
   output_tokens: integer('output_tokens').notNull().default(0),
@@ -76,10 +111,10 @@ export const usageEvents = pgTable('usage_events', {
   stripe_meter_event_id: text('stripe_meter_event_id'),
   created_at: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
 }, (table) => [
-  index('idx_usage_customer').on(table.customer_id),
+  index('idx_usage_org').on(table.org_id),
   index('idx_usage_instance').on(table.instance_id),
   index('idx_usage_created').on(table.created_at),
-  index('idx_usage_customer_period').on(table.customer_id, table.created_at),
+  index('idx_usage_org_period').on(table.org_id, table.created_at),
 ])
 
 export const instanceEvents = pgTable('instance_events', {
@@ -93,15 +128,37 @@ export const instanceEvents = pgTable('instance_events', {
   index('idx_events_type').on(table.event_type),
 ])
 
-export const customersRelations = relations(customers, ({ many }) => ({
+// Relations
+
+export const profilesRelations = relations(profiles, ({ many }) => ({
+  memberships: many(orgMembers),
+}))
+
+export const organizationsRelations = relations(organizations, ({ many }) => ({
+  members: many(orgMembers),
   instances: many(instances),
   usageEvents: many(usageEvents),
 }))
 
+export const orgMembersRelations = relations(orgMembers, ({ one }) => ({
+  organization: one(organizations, {
+    fields: [orgMembers.org_id],
+    references: [organizations.id],
+  }),
+  user: one(profiles, {
+    fields: [orgMembers.user_id],
+    references: [profiles.id],
+  }),
+}))
+
 export const instancesRelations = relations(instances, ({ one, many }) => ({
-  customer: one(customers, {
-    fields: [instances.customer_id],
-    references: [customers.id],
+  organization: one(organizations, {
+    fields: [instances.org_id],
+    references: [organizations.id],
+  }),
+  creator: one(profiles, {
+    fields: [instances.created_by],
+    references: [profiles.id],
   }),
   events: many(instanceEvents),
   usageEvents: many(usageEvents),
@@ -112,9 +169,9 @@ export const usageEventsRelations = relations(usageEvents, ({ one }) => ({
     fields: [usageEvents.instance_id],
     references: [instances.id],
   }),
-  customer: one(customers, {
-    fields: [usageEvents.customer_id],
-    references: [customers.id],
+  organization: one(organizations, {
+    fields: [usageEvents.org_id],
+    references: [organizations.id],
   }),
 }))
 

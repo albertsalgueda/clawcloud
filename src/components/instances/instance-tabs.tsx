@@ -10,9 +10,9 @@ const tabs = [
   { label: 'Usage', href: '/usage' },
 ]
 
-export function InstanceTabs({ instanceId }: { instanceId: string }) {
+export function InstanceTabs({ instanceId, orgSlug }: { instanceId: string; orgSlug: string }) {
   const pathname = usePathname()
-  const basePath = `/instances/${instanceId}`
+  const basePath = `/${orgSlug}/instances/${instanceId}`
 
   return (
     <nav className="flex gap-1 border-b pb-px mb-6">

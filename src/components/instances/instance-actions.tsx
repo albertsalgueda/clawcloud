@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, useParams } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { ConfirmDialog } from '@/components/shared/confirm-dialog'
 import { toast } from 'sonner'
@@ -10,6 +10,7 @@ import type { Instance } from '@/types/instance'
 
 export function InstanceActions({ instance }: { instance: Instance }) {
   const router = useRouter()
+  const params = useParams<{ orgSlug: string }>()
   const [actionLoading, setActionLoading] = useState<string | null>(null)
   const [deleteOpen, setDeleteOpen] = useState(false)
   const [deleteLoading, setDeleteLoading] = useState(false)
@@ -45,7 +46,7 @@ export function InstanceActions({ instance }: { instance: Instance }) {
         return
       }
       toast.success('Instance deleted')
-      router.push('/instances')
+      router.push(`/${params.orgSlug}/instances`)
       router.refresh()
     } catch {
       toast.error('Failed to delete instance')

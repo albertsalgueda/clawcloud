@@ -8,13 +8,13 @@ export async function GET(
   { params }: { params: Promise<{ instanceId: string }> }
 ) {
   const { instanceId } = await params
-  const customer = await requireAuth()
+  const { org } = await requireAuth()
 
   const { data: instance } = await supabaseAdmin
     .from('instances')
     .select('*')
     .eq('id', instanceId)
-    .eq('customer_id', customer.id)
+    .eq('org_id', org.id)
     .single()
 
   if (!instance) {

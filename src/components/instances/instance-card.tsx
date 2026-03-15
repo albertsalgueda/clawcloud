@@ -1,6 +1,7 @@
 'use client'
 
 import Link from 'next/link'
+import { useParams } from 'next/navigation'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { InstanceStatusBadge } from './instance-status'
@@ -11,6 +12,7 @@ import { toast } from 'sonner'
 import type { Instance } from '@/types/instance'
 
 export function InstanceCard({ instance }: { instance: Instance }) {
+  const params = useParams<{ orgSlug: string }>()
   const plan = PLANS[instance.plan]
   const region = REGIONS[instance.region]
 
@@ -22,7 +24,7 @@ export function InstanceCard({ instance }: { instance: Instance }) {
   }
 
   return (
-    <Link href={`/instances/${instance.id}`}>
+    <Link href={`/${params.orgSlug}/instances/${instance.id}`}>
       <Card className="float-in cursor-pointer rounded-2xl border border-border bg-card py-0 transition-colors hover:bg-accent/40">
         <CardHeader className="flex flex-row items-start justify-between space-y-0 border-b border-border py-4">
           <div>

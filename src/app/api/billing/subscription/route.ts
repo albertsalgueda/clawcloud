@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { requireAuth } from '@/lib/auth'
+import { requireOrgRole, canManageInstance } from '@/lib/auth'
 import { supabaseAdmin } from '@/lib/supabase/admin'
 import { updateSubscriptionPlan } from '@/lib/stripe/subscriptions'
 import { PLANS } from '@/lib/constants'
@@ -12,7 +12,7 @@ const updateSchema = z.object({
 })
 
 export async function POST(req: Request) {
-  const customer = await requireAuth()
+  const { org, membership } = await requireOrgRole('admin')
   const body = await req.json()
 
   const parsed = updateSchema.safeParse(body)
@@ -26,7 +26,7 @@ export async function POST(req: Request) {
     .from('instances')
     .select('*')
     .eq('id', instanceId)
-    .eq('customer_id', customer.id)
+    .eq('org_id', org.id)
     .single()
 
   if (!instance) {

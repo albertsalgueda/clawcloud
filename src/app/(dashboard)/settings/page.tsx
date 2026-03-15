@@ -5,11 +5,11 @@ import { Label } from '@/components/ui/label'
 import { Key, User } from 'lucide-react'
 
 export default async function SettingsPage() {
-  const customer = await requireAuth()
+  const { profile } = await requireAuth()
 
   return (
     <div className="mx-auto max-w-2xl space-y-6">
-      <h1 className="text-2xl font-bold">Settings</h1>
+      <h1 className="text-2xl font-bold">Profile Settings</h1>
 
       <Card>
         <CardHeader>
@@ -21,11 +21,11 @@ export default async function SettingsPage() {
         <CardContent className="space-y-4">
           <div className="space-y-2">
             <Label>Email</Label>
-            <Input value={customer.email} disabled />
+            <Input value={profile.email} disabled />
           </div>
           <div className="space-y-2">
             <Label>Name</Label>
-            <Input value={customer.name ?? ''} disabled />
+            <Input value={profile.name ?? ''} disabled />
           </div>
         </CardContent>
       </Card>

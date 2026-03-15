@@ -1,20 +1,12 @@
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Terminal } from 'lucide-react'
+import { requireAuth } from '@/lib/auth'
+import { redirect } from 'next/navigation'
 
-export default function InstanceLogsPage() {
-  return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <Terminal className="h-5 w-5" />
-          Instance Logs
-        </CardTitle>
-      </CardHeader>
-      <CardContent>
-        <p className="text-sm text-muted-foreground">
-          Log streaming is available in the ClawPort dashboard. Click &quot;Open Dashboard&quot; from the Overview tab to access live logs.
-        </p>
-      </CardContent>
-    </Card>
-  )
+export default async function InstanceLogsRedirect({
+  params,
+}: {
+  params: Promise<{ instanceId: string }>
+}) {
+  const { instanceId } = await params
+  const { org } = await requireAuth()
+  redirect(`/${org.slug}/instances/${instanceId}/logs`)
 }

@@ -1,4 +1,4 @@
-import type { Customer } from '@/lib/auth'
+import type { Organization } from '@/lib/auth'
 import type { Instance } from '@/types/instance'
 
 interface OpenClawConfig {
@@ -19,10 +19,17 @@ interface OpenClawConfig {
 
 export function generateOpenClawConfig(
   _instance: Instance,
-  customer: Customer,
+  org: Organization,
   gatewayToken: string,
   dashboardUrl: string,
 ): OpenClawConfig {
+  if (!org.stripe_customer_id) {
+    throw new Error(
+      `Cannot generate OpenClaw config: org ${org.id} has no stripe_customer_id. ` +
+      'AI usage would be unmetered and unbilled.'
+    )
+  }
+
   return {
     gateway: {
       auth: { token: gatewayToken },
@@ -36,7 +43,7 @@ export function generateOpenClawConfig(
           apiKey: '${AI_GATEWAY_API_KEY}',
           baseUrl: 'https://gateway.ai.vercel.app/v1',
           headers: {
-            'stripe-customer-id': customer.stripe_customer_id ?? '',
+            'stripe-customer-id': org.stripe_customer_id,
             'stripe-restricted-access-key': '${STRIPE_RESTRICTED_KEY}',
           },
         },

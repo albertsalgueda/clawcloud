@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { requireAuth } from '@/lib/auth'
+import { requireAuth, canManageInstance } from '@/lib/auth'
 import { supabaseAdmin } from '@/lib/supabase/admin'
 import { serverAction } from '@/lib/hetzner/servers'
 import { logInstanceEvent } from '@/lib/control-plane'
@@ -26,7 +26,7 @@ export async function POST(
   { params }: { params: Promise<{ instanceId: string }> }
 ) {
   const { instanceId } = await params
-  const customer = await requireAuth()
+  const { org, membership } = await requireAuth()
   const body = await req.json()
 
   const parsed = actionSchema.safeParse(body)
@@ -40,11 +40,15 @@ export async function POST(
     .from('instances')
     .select('*')
     .eq('id', instanceId)
-    .eq('customer_id', customer.id)
+    .eq('org_id', org.id)
     .single()
 
   if (!instance) {
     return NextResponse.json({ error: 'Instance not found' }, { status: 404 })
+  }
+
+  if (!canManageInstance(membership, instance)) {
+    return NextResponse.json({ error: 'Insufficient permissions' }, { status: 403 })
   }
 
   if (!instance.hetzner_server_id) {

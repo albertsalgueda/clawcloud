@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, useParams } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -14,6 +14,7 @@ import type { Instance } from '@/types/instance'
 
 export function InstanceSettingsForm({ instance }: { instance: Instance }) {
   const router = useRouter()
+  const params = useParams<{ orgSlug: string }>()
   const [name, setName] = useState(instance.name)
   const [envVars, setEnvVars] = useState<Array<{ key: string; value: string }>>(
     Object.entries(instance.env_vars ?? {}).map(([key, value]) => ({ key, value }))
@@ -74,7 +75,7 @@ export function InstanceSettingsForm({ instance }: { instance: Instance }) {
         return
       }
       toast.success('Instance deleted')
-      router.push('/instances')
+      router.push(`/${params.orgSlug}/instances`)
     } catch {
       toast.error('Failed to delete')
     } finally {
