@@ -2,6 +2,10 @@ import type { Customer } from '@/lib/auth'
 import type { Instance } from '@/types/instance'
 
 interface OpenClawConfig {
+  gateway: {
+    auth: { token: string }
+    controlUi: { allowedOrigins: string[] }
+  }
   models: {
     providers: Record<string, {
       apiKey: string
@@ -15,16 +19,24 @@ interface OpenClawConfig {
 
 export function generateOpenClawConfig(
   _instance: Instance,
-  customer: Customer
+  customer: Customer,
+  gatewayToken: string,
+  dashboardUrl: string,
 ): OpenClawConfig {
   return {
+    gateway: {
+      auth: { token: gatewayToken },
+      controlUi: {
+        allowedOrigins: [dashboardUrl],
+      },
+    },
     models: {
       providers: {
         'vercel-ai-gateway': {
           apiKey: '${AI_GATEWAY_API_KEY}',
           baseUrl: 'https://gateway.ai.vercel.app/v1',
           headers: {
-            'stripe-customer-id': customer.stripe_customer_id!,
+            'stripe-customer-id': customer.stripe_customer_id ?? '',
             'stripe-restricted-access-key': '${STRIPE_RESTRICTED_KEY}',
           },
         },

@@ -21,8 +21,7 @@ export default async function InstanceSettingsPage({
   if (!instance) notFound()
 
   return (
-    <div className="mx-auto max-w-2xl space-y-6">
-      <h1 className="text-2xl font-bold">Instance Settings</h1>
+    <div className="mx-auto max-w-2xl">
       <InstanceSettingsForm instance={instance} />
     </div>
   )

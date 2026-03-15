@@ -50,6 +50,8 @@ export const instances = pgTable('instances', {
   ip_address: inet('ip_address'),
   stripe_subscription_id: text('stripe_subscription_id'),
   stripe_subscription_item_id: text('stripe_subscription_item_id'),
+  gateway_token: text('gateway_token'),
+  dashboard_url: text('dashboard_url'),
   config: jsonb('config').notNull().default({}),
   env_vars: jsonb('env_vars').notNull().default({}),
   provisioned_at: timestamp('provisioned_at', { withTimezone: true }),

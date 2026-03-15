@@ -15,6 +15,8 @@ export interface Instance {
   ip_address: string | null
   stripe_subscription_id: string | null
   stripe_subscription_item_id: string | null
+  gateway_token: string | null
+  dashboard_url: string | null
   config: Record<string, unknown>
   env_vars: Record<string, string>
   provisioned_at: string | null

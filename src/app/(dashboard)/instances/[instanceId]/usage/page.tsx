@@ -18,7 +18,6 @@ export default function InstanceUsagePage({
 
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl font-bold">Usage</h1>
       <UsageChart data={usage?.daily ?? []} />
       <UsageByModelTable data={usage?.by_model ?? []} />
     </div>
