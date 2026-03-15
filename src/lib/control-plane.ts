@@ -1,7 +1,6 @@
 import { createServer } from '@/lib/hetzner/servers'
 import { generateCloudInit } from '@/lib/hetzner/cloud-init'
 import { generateOpenClawConfig } from '@/lib/openclaw/config'
-import { checkInstanceHealth } from '@/lib/openclaw/health'
 import { supabaseAdmin } from '@/lib/supabase/admin'
 import { PLANS, REGIONS } from '@/lib/constants'
 import type { Instance } from '@/types/instance'
@@ -19,9 +18,9 @@ export async function provisionInstance(
   const userData = generateCloudInit({
     instanceId: instance.id,
     customerId: customer.id,
-    stripeCustomerId: customer.stripe_customer_id!,
-    aiGatewayApiKey: process.env.VERCEL_AI_GATEWAY_KEY!,
-    stripeRestrictedKey: process.env.STRIPE_RESTRICTED_ACCESS_KEY!,
+    stripeCustomerId: customer.stripe_customer_id ?? '',
+    aiGatewayApiKey: process.env.VERCEL_AI_GATEWAY_KEY ?? '',
+    stripeRestrictedKey: process.env.STRIPE_RESTRICTED_ACCESS_KEY ?? '',
     openclawConfig: JSON.stringify(openclawConfig, null, 2),
     openclawVersion: process.env.OPENCLAW_VERSION ?? 'latest',
   })
@@ -49,46 +48,11 @@ export async function provisionInstance(
     })
     .eq('id', instance.id)
 
-  const healthy = await waitForHealth(server.public_net.ipv4.ip, {
-    maxAttempts: 30,
-    intervalMs: 10_000,
+  await logInstanceEvent(instance.id, 'server_created', {
+    server_id: server.id,
+    ip: server.public_net.ipv4.ip,
+    server_type: plan.hetzner_type,
   })
-
-  if (healthy) {
-    await supabaseAdmin
-      .from('instances')
-      .update({
-        status: 'running',
-        provisioned_at: new Date().toISOString(),
-      })
-      .eq('id', instance.id)
-
-    await logInstanceEvent(instance.id, 'provisioned', {
-      server_id: server.id,
-      ip: server.public_net.ipv4.ip,
-    })
-  } else {
-    await supabaseAdmin
-      .from('instances')
-      .update({ status: 'error' })
-      .eq('id', instance.id)
-
-    await logInstanceEvent(instance.id, 'error', {
-      reason: 'Health check timeout after provisioning',
-    })
-  }
-}
-
-async function waitForHealth(
-  ip: string,
-  opts: { maxAttempts: number; intervalMs: number }
-): Promise<boolean> {
-  for (let i = 0; i < opts.maxAttempts; i++) {
-    await new Promise(r => setTimeout(r, opts.intervalMs))
-    const health = await checkInstanceHealth(ip)
-    if (health.status === 'healthy') return true
-  }
-  return false
 }
 
 export async function logInstanceEvent(

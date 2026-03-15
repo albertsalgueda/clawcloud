@@ -1,7 +1,6 @@
 import { NextResponse } from 'next/server'
 import { requireAuth } from '@/lib/auth'
 import { supabaseAdmin } from '@/lib/supabase/admin'
-import { createSubscription } from '@/lib/stripe/subscriptions'
 import { provisionInstance, logInstanceEvent } from '@/lib/control-plane'
 import { PLANS } from '@/lib/constants'
 import { generateSlug } from '@/lib/utils'
@@ -30,6 +29,8 @@ export async function GET() {
   return NextResponse.json({ instances })
 }
 
+export const maxDuration = 30
+
 export async function POST(req: Request) {
   const customer = await requireAuth()
   const body = await req.json()
@@ -40,7 +41,6 @@ export async function POST(req: Request) {
   }
 
   const { name, plan, region } = parsed.data
-  const planConfig = PLANS[plan]
 
   const { count } = await supabaseAdmin
     .from('instances')
@@ -74,36 +74,20 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: insertError?.message ?? 'Failed to create instance' }, { status: 500 })
   }
 
-  if (customer.stripe_customer_id) {
-    try {
-      const subscription = await createSubscription({
-        customerId: customer.stripe_customer_id,
-        priceId: planConfig.stripe_price_id,
-        metadata: { instance_id: instance.id, customer_id: customer.id },
-      })
+  await logInstanceEvent(instance.id, 'created', { plan, region })
 
-      await supabaseAdmin
-        .from('instances')
-        .update({
-          stripe_subscription_id: subscription.id,
-          stripe_subscription_item_id: subscription.items.data[0]?.id,
-        })
-        .eq('id', instance.id)
-    } catch (err) {
-      console.error('Stripe subscription creation failed:', err)
-    }
-  }
-
-  provisionInstance(instance, customer).catch(async (err) => {
+  try {
+    await provisionInstance(instance, customer)
+    return NextResponse.json({ instance: { ...instance, status: 'provisioning' } }, { status: 201 })
+  } catch (err) {
     console.error('Provisioning failed:', err)
     await supabaseAdmin
       .from('instances')
       .update({ status: 'error' })
       .eq('id', instance.id)
-    await logInstanceEvent(instance.id, 'error', { error: err instanceof Error ? err.message : 'Unknown' })
-  })
-
-  await logInstanceEvent(instance.id, 'created', { plan, region })
-
-  return NextResponse.json({ instance }, { status: 201 })
+    await logInstanceEvent(instance.id, 'error', {
+      error: err instanceof Error ? err.message : 'Unknown provisioning error',
+    })
+    return NextResponse.json({ instance: { ...instance, status: 'error' } }, { status: 201 })
+  }
 }
