@@ -10,8 +10,9 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
-import { User, LogOut } from 'lucide-react'
+import { User, LogOut, ChevronLeft, ChevronRight } from 'lucide-react'
 import { MobileNav } from './mobile-nav'
+import { useSidebarState } from './sidebar-state'
 
 const pageTitles: Record<string, string> = {
   '/instances': 'Instances',
@@ -31,6 +32,7 @@ export function Topbar() {
   const pathname = usePathname()
   const supabase = createClient()
   const title = getPageTitle(pathname)
+  const { collapsed, toggleCollapsed } = useSidebarState()
 
   async function handleSignOut() {
     await supabase.auth.signOut()
@@ -46,7 +48,20 @@ export function Topbar() {
           <span className="font-medium">ClawCloud</span>
         </div>
 
-        <div className="hidden text-sm font-medium lg:block">{title}</div>
+        <div className="hidden items-center gap-2 lg:flex">
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            className="h-8 w-8 rounded-lg"
+            onClick={toggleCollapsed}
+            aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+            title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+          >
+            {collapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronLeft className="h-4 w-4" />}
+          </Button>
+          <div className="text-sm font-medium">{title}</div>
+        </div>
 
         <div className="ml-auto flex items-center gap-2">
           <DropdownMenu>
