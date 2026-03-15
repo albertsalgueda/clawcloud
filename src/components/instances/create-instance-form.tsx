@@ -55,20 +55,20 @@ export function CreateInstanceForm() {
   return (
     <form onSubmit={handleSubmit} className="space-y-8">
       <div className="space-y-2">
-        <Label htmlFor="name" className="text-xs uppercase tracking-[0.22em] text-muted-foreground">Instance Name</Label>
+        <Label htmlFor="name" className="text-xs text-muted-foreground">Instance name</Label>
         <Input
           id="name"
           placeholder="my-openclaw-instance"
           value={name}
           onChange={(e) => setName(e.target.value)}
           required
-          className="h-12 rounded-2xl border-white/10 bg-background/35"
+          className="h-12 rounded-2xl border-border bg-background"
         />
         <p className="text-xs text-muted-foreground">Letters, numbers, spaces, and hyphens only</p>
       </div>
 
       <div className="space-y-3">
-        <Label className="text-xs uppercase tracking-[0.22em] text-muted-foreground">Plan</Label>
+        <Label className="text-xs text-muted-foreground">Plan</Label>
         <div className="grid gap-3 sm:grid-cols-3">
           {(Object.entries(PLANS) as [InstancePlan, (typeof PLANS)[InstancePlan]][]).map(([key, p]) => {
             const isSelected = plan === key
@@ -78,20 +78,20 @@ export function CreateInstanceForm() {
                 type="button"
                 onClick={() => setPlan(key)}
                 className={cn(
-                  'relative flex flex-col gap-3 rounded-[24px] border p-4 text-left transition-all duration-200',
+                  'relative flex flex-col gap-3 rounded-2xl border p-4 text-left transition-colors',
                   isSelected
-                    ? 'warm-glow border-primary bg-primary/10 ring-1 ring-primary/50'
-                    : 'border-white/10 bg-background/25 hover:border-primary/20 hover:bg-background/40'
+                    ? 'border-primary bg-accent'
+                    : 'border-border bg-background hover:bg-accent/50'
                 )}
               >
                 {isSelected && (
-                  <div className="absolute right-3 top-3 flex h-6 w-6 items-center justify-center rounded-full bg-primary">
-                    <Check className="h-3 w-3 text-primary-foreground" />
+                  <div className="absolute right-3 top-3 flex h-6 w-6 items-center justify-center rounded-full bg-primary/15 text-primary">
+                    <Check className="h-3 w-3" />
                   </div>
                 )}
                 <div>
-                  <div className="text-sm font-semibold uppercase tracking-[0.16em] text-muted-foreground">{p.name}</div>
-                  <div className="mt-2 text-3xl font-semibold tracking-tight">
+                  <div className="text-sm font-medium">{p.name}</div>
+                  <div className="mt-2 text-2xl font-medium tracking-tight">
                     {formatCurrency(p.price_eur)}
                     <span className="ml-1 text-xs font-normal text-muted-foreground">/mo</span>
                   </div>
@@ -116,9 +116,9 @@ export function CreateInstanceForm() {
       </div>
 
       <div className="space-y-2">
-        <Label className="text-xs uppercase tracking-[0.22em] text-muted-foreground">Region</Label>
+        <Label className="text-xs text-muted-foreground">Region</Label>
         <Select value={region} onValueChange={(v) => setRegion(v as InstanceRegion)}>
-          <SelectTrigger className="h-12 rounded-2xl border-white/10 bg-background/35">
+          <SelectTrigger className="h-12 w-full rounded-2xl border-border bg-background">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
@@ -129,11 +129,11 @@ export function CreateInstanceForm() {
         </Select>
       </div>
 
-      <div className="surface-noise rounded-[24px] border border-white/10 p-5">
+      <div className="rounded-2xl border border-border bg-background p-5">
         <div className="flex items-center justify-between gap-4 text-sm">
           <div>
-            <div className="text-[11px] uppercase tracking-[0.22em] text-muted-foreground">Monthly estimate</div>
-            <div className="mt-2 text-2xl font-semibold">{formatCurrency(selectedPlan.price_eur)}/mo</div>
+            <div className="text-xs text-muted-foreground">Monthly estimate</div>
+            <div className="mt-2 text-2xl font-medium">{formatCurrency(selectedPlan.price_eur)}/mo</div>
           </div>
           <div className="text-right text-xs leading-5 text-muted-foreground">
             {selectedPlan.vcpu} vCPU
@@ -143,7 +143,7 @@ export function CreateInstanceForm() {
         </div>
       </div>
 
-      <Button type="submit" disabled={loading} className="warm-glow h-12 w-full rounded-2xl text-sm font-semibold">
+      <Button type="submit" disabled={loading} className="h-12 w-full rounded-2xl text-sm font-medium">
         {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
         Create Instance
       </Button>
