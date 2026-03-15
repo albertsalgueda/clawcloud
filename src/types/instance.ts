@@ -1,6 +1,6 @@
 export type InstanceStatus = 'provisioning' | 'running' | 'stopped' | 'error' | 'deleting' | 'deleted'
 export type InstancePlan = 'starter' | 'pro' | 'business'
-export type InstanceRegion = 'eu-central' | 'eu-west' | 'us-east' | 'us-west'
+export type InstanceRegion = 'eu-central' | 'eu-west'
 
 export interface Instance {
   id: string

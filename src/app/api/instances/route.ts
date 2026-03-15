@@ -9,7 +9,7 @@ import { z } from 'zod'
 const createInstanceSchema = z.object({
   name: z.string().min(2).max(50).regex(/^[a-zA-Z0-9\s-]+$/),
   plan: z.enum(['starter', 'pro', 'business']),
-  region: z.enum(['eu-central', 'eu-west', 'us-east', 'us-west']),
+  region: z.enum(['eu-central', 'eu-west']),
 })
 
 export async function GET() {

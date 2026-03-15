@@ -34,10 +34,8 @@ export const PLANS = {
 export type PlanKey = keyof typeof PLANS
 
 export const REGIONS = {
-  'eu-central': { hetzner: 'fsn1', label: 'EU Central (Falkenstein)' },
+  'eu-central': { hetzner: 'nbg1', label: 'EU Central (Nuremberg)' },
   'eu-west': { hetzner: 'hel1', label: 'EU West (Helsinki)' },
-  'us-east': { hetzner: 'ash', label: 'US East (Ashburn)' },
-  'us-west': { hetzner: 'hil', label: 'US West (Hillsboro)' },
 } as const
 
 export type RegionKey = keyof typeof REGIONS
