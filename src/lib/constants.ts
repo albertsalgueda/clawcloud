@@ -7,7 +7,7 @@ export const PLANS = {
     hetzner_type: 'cx22',
     max_instances: 1,
     markup_pct: 30,
-    stripe_price_id: process.env.STRIPE_PRICE_STARTER!,
+    get stripe_price_id() { return process.env.STRIPE_PRICE_STARTER ?? '' },
   },
   pro: {
     name: 'Pro',
@@ -17,7 +17,7 @@ export const PLANS = {
     hetzner_type: 'cx32',
     max_instances: 3,
     markup_pct: 25,
-    stripe_price_id: process.env.STRIPE_PRICE_PRO!,
+    get stripe_price_id() { return process.env.STRIPE_PRICE_PRO ?? '' },
   },
   business: {
     name: 'Business',
@@ -27,7 +27,7 @@ export const PLANS = {
     hetzner_type: 'cx42',
     max_instances: 10,
     markup_pct: 20,
-    stripe_price_id: process.env.STRIPE_PRICE_BUSINESS!,
+    get stripe_price_id() { return process.env.STRIPE_PRICE_BUSINESS ?? '' },
   },
 } as const
 
@@ -43,7 +43,7 @@ export const REGIONS = {
 export type RegionKey = keyof typeof REGIONS
 
 export const PLAN_PRICES: Record<PlanKey, string> = {
-  starter: process.env.STRIPE_PRICE_STARTER ?? '',
-  pro: process.env.STRIPE_PRICE_PRO ?? '',
-  business: process.env.STRIPE_PRICE_BUSINESS ?? '',
+  get starter() { return process.env.STRIPE_PRICE_STARTER ?? '' },
+  get pro() { return process.env.STRIPE_PRICE_PRO ?? '' },
+  get business() { return process.env.STRIPE_PRICE_BUSINESS ?? '' },
 }
