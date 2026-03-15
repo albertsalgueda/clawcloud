@@ -53,7 +53,7 @@ ${indentedConfig}
     content: |
       services:
         openclaw:
-          image: openclaw/openclaw:${params.openclawVersion}
+          image: ghcr.io/openclaw/openclaw:${params.openclawVersion}
           container_name: openclaw
           restart: always
           env_file: .env
@@ -61,9 +61,9 @@ ${indentedConfig}
             - ./openclaw.json:/home/openclaw/.openclaw/openclaw.json
             - ./workspace:/home/openclaw/workspace
           ports:
-            - "3000:3000"
+            - "18789:18789"
           healthcheck:
-            test: ["CMD", "curl", "-f", "http://localhost:3000/health"]
+            test: ["CMD", "curl", "-f", "http://localhost:18789/healthz"]
             interval: 30s
             timeout: 10s
             retries: 3
