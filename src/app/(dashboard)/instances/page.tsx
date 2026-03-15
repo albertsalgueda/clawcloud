@@ -2,9 +2,8 @@ import { requireAuth } from '@/lib/auth'
 import { supabaseAdmin } from '@/lib/supabase/admin'
 import { InstanceCard } from '@/components/instances/instance-card'
 import { EmptyState } from '@/components/shared/empty-state'
-import { buttonVariants } from '@/components/ui/button'
-import Link from 'next/link'
-import { Plus, Server } from 'lucide-react'
+import { NewInstanceLink } from '@/components/instances/new-instance-link'
+import { Server } from 'lucide-react'
 
 export default async function InstancesPage() {
   const customer = await requireAuth()
@@ -20,7 +19,7 @@ export default async function InstancesPage() {
     return (
       <div className="space-y-6">
         <div className="flex items-center justify-between">
-          <h1 className="text-2xl font-bold">Instances</h1>
+          <h1 className="text-2xl font-bold tracking-tight">Instances</h1>
         </div>
         <EmptyState
           title="No instances yet"
@@ -36,11 +35,8 @@ export default async function InstancesPage() {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold">Instances</h1>
-        <Link href="/instances/new" className={buttonVariants()}>
-          <Plus className="mr-2 h-4 w-4" />
-          New Instance
-        </Link>
+        <h1 className="text-2xl font-bold tracking-tight">Instances</h1>
+        <NewInstanceLink />
       </div>
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {instances.map((instance) => (
