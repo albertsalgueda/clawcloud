@@ -33,8 +33,8 @@ export const MAX_INSTANCES_PER_ORG = 50
 export type PlanKey = keyof typeof PLANS
 
 export const REGIONS = {
-  'eu-central': { hetzner: 'nbg1', label: 'EU Central (Nuremberg)' },
-  'eu-west': { hetzner: 'hel1', label: 'EU West (Helsinki)' },
+  'eu-central': { hetzner: 'fsn1', label: 'EU Central (Falkenstein)' },
+  'eu-west': { hetzner: 'hel1', label: 'EU North (Helsinki)' },
 } as const
 
 export type RegionKey = keyof typeof REGIONS

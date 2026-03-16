@@ -47,7 +47,7 @@ describe('REGIONS', () => {
   })
 
   it('maps to valid Hetzner locations', () => {
-    expect(REGIONS['eu-central'].hetzner).toBe('nbg1')
+    expect(REGIONS['eu-central'].hetzner).toBe('fsn1')
     expect(REGIONS['eu-west'].hetzner).toBe('hel1')
   })
 })
