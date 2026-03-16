@@ -15,7 +15,7 @@ import {
 import { relations } from 'drizzle-orm'
 
 export const instanceStatusEnum = pgEnum('instance_status', [
-  'pending_payment', 'provisioning', 'running', 'stopped', 'error', 'deleting', 'deleted',
+  'provisioning', 'running', 'stopped', 'error', 'deleting', 'deleted',
 ])
 
 export const instancePlanEnum = pgEnum('instance_plan', [

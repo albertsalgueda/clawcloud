@@ -47,7 +47,16 @@ describe('handleStripeEvent', () => {
   })
 
   describe('checkout.session.completed', () => {
-    it('skips if metadata is missing', async () => {
+    const validMeta = {
+      org_id: 'org-1',
+      instance_name: 'Test Instance',
+      instance_slug: 'test-instance',
+      instance_plan: 'starter',
+      instance_region: 'eu-central',
+      created_by: 'user-1',
+    }
+
+    it('skips if metadata is missing required fields', async () => {
       await handleStripeEvent({
         type: 'checkout.session.completed',
         data: { object: { metadata: {} } },
@@ -61,7 +70,7 @@ describe('handleStripeEvent', () => {
         type: 'checkout.session.completed',
         data: {
           object: {
-            metadata: { instance_id: 'inst-1', org_id: 'org-1' },
+            metadata: validMeta,
             subscription: null,
           },
         },
@@ -70,14 +79,15 @@ describe('handleStripeEvent', () => {
       expect(mockSubscriptionsRetrieve).not.toHaveBeenCalled()
     })
 
-    it('provisions instance on successful checkout', async () => {
+    it('creates instance and provisions on successful checkout', async () => {
       mockSubscriptionsRetrieve.mockResolvedValue({
         id: 'sub_123',
         items: { data: [{ id: 'si_123' }] },
       })
 
-      const instanceChain = chainMock({
-        data: { id: 'inst-1', status: 'provisioning', plan: 'starter', region: 'eu-central' },
+      const idempotencyChain = chainMock({ data: null, error: { code: 'PGRST116' } })
+      const insertChain = chainMock({
+        data: { id: 'inst-new', status: 'provisioning', plan: 'starter', region: 'eu-central' },
         error: null,
       })
       const orgChain = chainMock({
@@ -85,11 +95,12 @@ describe('handleStripeEvent', () => {
         error: null,
       })
 
-      let callCount = 0
+      let instanceCallCount = 0
       mockFrom.mockImplementation((table: string) => {
         if (table === 'instances') {
-          callCount++
-          if (callCount === 1) return instanceChain
+          instanceCallCount++
+          if (instanceCallCount === 1) return idempotencyChain
+          if (instanceCallCount === 2) return insertChain
           return chainMock({ data: null, error: null })
         }
         if (table === 'organizations') return orgChain
@@ -104,7 +115,7 @@ describe('handleStripeEvent', () => {
         data: {
           object: {
             id: 'cs_123',
-            metadata: { instance_id: 'inst-1', org_id: 'org-1' },
+            metadata: validMeta,
             subscription: 'sub_123',
           },
         },
@@ -112,28 +123,18 @@ describe('handleStripeEvent', () => {
 
       expect(mockSubscriptionsRetrieve).toHaveBeenCalledWith('sub_123')
       expect(mockProvisionInstance).toHaveBeenCalled()
-      expect(mockLogInstanceEvent).toHaveBeenCalledWith(
-        'inst-1',
-        'payment_completed',
-        expect.objectContaining({ subscription_id: 'sub_123' })
-      )
     })
 
-    it('skips provisioning if instance already processed (idempotency)', async () => {
-      mockSubscriptionsRetrieve.mockResolvedValue({
-        id: 'sub_123',
-        items: { data: [{ id: 'si_123' }] },
-      })
-
-      const instanceChain = chainMock({ data: null, error: { code: 'PGRST116' } })
-      mockFrom.mockReturnValue(instanceChain)
+    it('skips if instance for subscription already exists (idempotency)', async () => {
+      const existingChain = chainMock({ data: { id: 'inst-existing' }, error: null })
+      mockFrom.mockReturnValue(existingChain)
 
       await handleStripeEvent({
         type: 'checkout.session.completed',
         data: {
           object: {
             id: 'cs_123',
-            metadata: { instance_id: 'inst-1', org_id: 'org-1' },
+            metadata: validMeta,
             subscription: 'sub_123',
           },
         },
@@ -148,8 +149,9 @@ describe('handleStripeEvent', () => {
         items: { data: [{ id: 'si_123' }] },
       })
 
-      const instanceChain = chainMock({
-        data: { id: 'inst-1', status: 'provisioning' },
+      const idempotencyChain = chainMock({ data: null, error: { code: 'PGRST116' } })
+      const insertChain = chainMock({
+        data: { id: 'inst-new', status: 'provisioning' },
         error: null,
       })
       const orgChain = chainMock({
@@ -157,11 +159,12 @@ describe('handleStripeEvent', () => {
         error: null,
       })
 
-      let callCount = 0
+      let instanceCallCount = 0
       mockFrom.mockImplementation((table: string) => {
         if (table === 'instances') {
-          callCount++
-          if (callCount === 1) return instanceChain
+          instanceCallCount++
+          if (instanceCallCount === 1) return idempotencyChain
+          if (instanceCallCount === 2) return insertChain
           return chainMock({ data: null, error: null })
         }
         if (table === 'organizations') return orgChain
@@ -176,14 +179,14 @@ describe('handleStripeEvent', () => {
         data: {
           object: {
             id: 'cs_123',
-            metadata: { instance_id: 'inst-1', org_id: 'org-1' },
+            metadata: validMeta,
             subscription: 'sub_123',
           },
         },
       } as unknown as Stripe.Event)
 
       expect(mockLogInstanceEvent).toHaveBeenCalledWith(
-        'inst-1',
+        'inst-new',
         'error',
         expect.objectContaining({ error: 'Hetzner API down' })
       )

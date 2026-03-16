@@ -46,13 +46,8 @@ export function CreateInstanceForm() {
         return
       }
 
-      if (data.checkoutUrl) {
-        toast.success('Redirecting to payment...')
-        window.location.href = data.checkoutUrl
-      } else {
-        toast.success('Instance created! Provisioning...')
-        router.push(`/${params.orgSlug}/instances/${data.instance.id}`)
-      }
+      toast.success('Redirecting to payment...')
+      window.location.href = data.checkoutUrl
     } catch {
       toast.error('Failed to create instance')
     } finally {

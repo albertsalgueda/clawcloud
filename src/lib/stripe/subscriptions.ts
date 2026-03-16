@@ -4,9 +4,9 @@ import { stripe } from './client'
 interface CreateCheckoutParams {
   customerId: string
   priceId: string
-  instanceId: string
   orgId: string
   orgSlug: string
+  metadata: Record<string, string>
   successUrl: string
   cancelUrl: string
 }
@@ -22,17 +22,11 @@ export async function createInstanceCheckout(
       { price: process.env.STRIPE_PRICE_TOKEN_USAGE! },
     ],
     subscription_data: {
-      metadata: {
-        instance_id: params.instanceId,
-        org_id: params.orgId,
-      },
+      metadata: params.metadata,
     },
     success_url: params.successUrl,
     cancel_url: params.cancelUrl,
-    metadata: {
-      instance_id: params.instanceId,
-      org_id: params.orgId,
-    },
+    metadata: params.metadata,
   })
 }
 

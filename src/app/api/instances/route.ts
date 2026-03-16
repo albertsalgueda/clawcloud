@@ -1,7 +1,6 @@
 import { NextResponse } from 'next/server'
 import { requireAuth } from '@/lib/auth'
 import { supabaseAdmin } from '@/lib/supabase/admin'
-import { logInstanceEvent } from '@/lib/control-plane'
 import { PLAN_PRICES, MAX_INSTANCES_PER_ORG } from '@/lib/constants'
 import { createInstanceCheckout } from '@/lib/stripe/subscriptions'
 import { ensureStripeCustomer } from '@/lib/stripe/ensure-customer'
@@ -76,64 +75,36 @@ export async function POST(req: Request) {
   }
 
   const slug = generateSlug(name)
-
-  const { data: instance, error: insertError } = await supabaseAdmin
-    .from('instances')
-    .insert({
-      org_id: org.id,
-      created_by: profile.id,
-      name,
-      slug,
-      plan,
-      region,
-      status: 'pending_payment',
-    })
-    .select()
-    .single()
-
-  if (insertError || !instance) {
-    return NextResponse.json({ error: insertError?.message ?? 'Failed to create instance' }, { status: 500 })
-  }
-
-  await logInstanceEvent(instance.id, 'created', { plan, region })
-
   const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000'
 
   try {
     const session = await createInstanceCheckout({
       customerId: stripeCustomerId,
       priceId: PLAN_PRICES[plan],
-      instanceId: instance.id,
       orgId: org.id,
       orgSlug: org.slug,
-      successUrl: `${appUrl}/${org.slug}/instances/${instance.id}?checkout=success`,
+      metadata: {
+        instance_name: name,
+        instance_slug: slug,
+        instance_plan: plan,
+        instance_region: region,
+        created_by: profile.id,
+        org_id: org.id,
+      },
+      successUrl: `${appUrl}/${org.slug}/instances?checkout=success`,
       cancelUrl: `${appUrl}/${org.slug}/instances/new?checkout=cancelled`,
     })
 
     if (!session.url) {
-      await supabaseAdmin
-        .from('instances')
-        .update({ status: 'error' })
-        .eq('id', instance.id)
       return NextResponse.json(
         { error: 'Failed to create checkout session. Please try again.' },
         { status: 500 }
       )
     }
 
-    return NextResponse.json({
-      instance: { ...instance, status: 'pending_payment' },
-      checkoutUrl: session.url,
-    }, { status: 201 })
+    return NextResponse.json({ checkoutUrl: session.url }, { status: 201 })
   } catch (err) {
     console.error('Checkout session creation failed:', err)
-    await supabaseAdmin
-      .from('instances')
-      .update({ status: 'error' })
-      .eq('id', instance.id)
-    await logInstanceEvent(instance.id, 'error', {
-      error: err instanceof Error ? err.message : 'Checkout creation failed',
-    })
     return NextResponse.json(
       { error: 'Failed to set up billing. Please try again.' },
       { status: 500 }

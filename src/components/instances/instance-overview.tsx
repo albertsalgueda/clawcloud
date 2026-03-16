@@ -14,7 +14,7 @@ import type { Instance } from '@/types/instance'
 import type { HealthStatus } from '@/lib/openclaw/health'
 
 export function InstanceOverview({ instance: initialInstance }: { instance: Instance }) {
-  const isTransitional = initialInstance.status === 'pending_payment' || initialInstance.status === 'provisioning'
+  const isTransitional = initialInstance.status === 'provisioning'
   const { data: polledData } = usePolling<{ instance: Instance }>(
     isTransitional ? `/api/instances/${initialInstance.id}` : null,
     5000
@@ -74,20 +74,6 @@ export function InstanceOverview({ instance: initialInstance }: { instance: Inst
               <ExternalLink className="mr-2 h-4 w-4" />
               Open ClawPort
             </Button>
-          </CardContent>
-        </Card>
-      )}
-
-      {instance.status === 'pending_payment' && (
-        <Card className="border-blue-500/20 bg-blue-500/5">
-          <CardContent className="py-4">
-            <p className="text-sm font-medium text-blue-600 dark:text-blue-400">
-              Awaiting payment
-            </p>
-            <p className="text-xs text-muted-foreground mt-1">
-              Complete the Stripe checkout to activate this instance. Once payment is confirmed,
-              provisioning will start automatically.
-            </p>
           </CardContent>
         </Card>
       )}

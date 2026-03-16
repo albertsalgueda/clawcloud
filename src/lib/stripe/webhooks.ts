@@ -28,40 +28,64 @@ export async function handleStripeEvent(event: Stripe.Event): Promise<void> {
 }
 
 async function handleCheckoutCompleted(session: Stripe.Checkout.Session): Promise<void> {
-  const instanceId = session.metadata?.instance_id
-  const orgId = session.metadata?.org_id
-  if (!instanceId || !orgId) return
+  const meta = session.metadata ?? {}
+  const orgId = meta.org_id
+  const name = meta.instance_name
+  const slug = meta.instance_slug
+  const plan = meta.instance_plan
+  const region = meta.instance_region
+  const createdBy = meta.created_by
+
+  if (!orgId || !name || !slug || !plan || !region) {
+    console.error('Checkout session missing required instance metadata', meta)
+    return
+  }
 
   const subscriptionId = typeof session.subscription === 'string'
     ? session.subscription
     : session.subscription?.id
 
   if (!subscriptionId) {
-    console.error(`Checkout completed but no subscription for instance ${instanceId}`)
+    console.error(`Checkout completed but no subscription (session ${session.id})`)
+    return
+  }
+
+  // Idempotency: check if an instance with this subscription already exists
+  const { data: existing } = await supabaseAdmin
+    .from('instances')
+    .select('id')
+    .eq('stripe_subscription_id', subscriptionId)
+    .single()
+
+  if (existing) {
+    console.log(`Instance for subscription ${subscriptionId} already exists, skipping`)
     return
   }
 
   const subscription = await stripe.subscriptions.retrieve(subscriptionId)
 
-  // Only transition from pending_payment to prevent duplicate provisioning
-  const { data: updated, error: updateError } = await supabaseAdmin
+  const { data: instance, error: insertError } = await supabaseAdmin
     .from('instances')
-    .update({
+    .insert({
+      org_id: orgId,
+      created_by: createdBy || null,
+      name,
+      slug,
+      plan,
+      region,
       status: 'provisioning',
       stripe_subscription_id: subscription.id,
       stripe_subscription_item_id: subscription.items.data[0]?.id,
     })
-    .eq('id', instanceId)
-    .eq('status', 'pending_payment')
     .select()
     .single()
 
-  if (updateError || !updated) {
-    console.log(`Instance ${instanceId} already processed (not in pending_payment), skipping`)
+  if (insertError || !instance) {
+    console.error('Failed to create instance after checkout:', insertError?.message)
     return
   }
 
-  await logInstanceEvent(instanceId, 'payment_completed', {
+  await logInstanceEvent(instance.id, 'payment_completed', {
     subscription_id: subscription.id,
     checkout_session_id: session.id,
   })
@@ -78,14 +102,14 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session): Promis
   }
 
   try {
-    await provisionInstance(updated, org as Organization)
+    await provisionInstance(instance, org as Organization)
   } catch (err) {
     console.error('Provisioning failed after checkout:', err)
     await supabaseAdmin
       .from('instances')
       .update({ status: 'error' })
-      .eq('id', instanceId)
-    await logInstanceEvent(instanceId, 'error', {
+      .eq('id', instance.id)
+    await logInstanceEvent(instance.id, 'error', {
       error: err instanceof Error ? err.message : 'Provisioning failed after payment',
     })
   }
@@ -99,17 +123,9 @@ async function handleBillingMeterEvent(event: Stripe.Event): Promise<void> {
   )
 }
 
-async function handleSubscriptionCreated(sub: Stripe.Subscription): Promise<void> {
-  const instanceId = sub.metadata?.instance_id
-  if (!instanceId) return
-
-  await supabaseAdmin
-    .from('instances')
-    .update({
-      stripe_subscription_id: sub.id,
-      stripe_subscription_item_id: sub.items.data[0]?.id,
-    })
-    .eq('id', instanceId)
+async function handleSubscriptionCreated(_sub: Stripe.Subscription): Promise<void> {
+  // Instance creation is handled in handleCheckoutCompleted.
+  // The subscription is linked to the instance at that point.
 }
 
 async function handleSubscriptionUpdated(sub: Stripe.Subscription): Promise<void> {

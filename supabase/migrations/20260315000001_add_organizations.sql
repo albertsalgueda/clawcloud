@@ -42,7 +42,7 @@ $$ LANGUAGE plpgsql;
 -- ============================================================
 
 CREATE TYPE instance_status AS ENUM (
-  'pending_payment', 'provisioning', 'running', 'stopped', 'error', 'deleting', 'deleted'
+  'provisioning', 'running', 'stopped', 'error', 'deleting', 'deleted'
 );
 CREATE TYPE instance_plan AS ENUM ('starter', 'pro', 'business');
 CREATE TYPE instance_region AS ENUM ('eu-central', 'eu-west', 'us-east', 'us-west');
