@@ -27,10 +27,19 @@ export async function GET(
 
   const health = await checkInstanceHealth(instance.ip_address)
 
+  const updates: Record<string, unknown> = {
+    last_health_check: new Date().toISOString(),
+  }
+
+  if (instance.status === 'provisioning' && health.status === 'healthy') {
+    updates.status = 'running'
+    updates.provisioned_at = new Date().toISOString()
+  }
+
   await supabaseAdmin
     .from('instances')
-    .update({ last_health_check: new Date().toISOString() })
+    .update(updates)
     .eq('id', instanceId)
 
-  return NextResponse.json({ health })
+  return NextResponse.json({ health, status: updates.status ?? instance.status })
 }

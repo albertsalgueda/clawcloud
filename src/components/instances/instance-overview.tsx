@@ -14,18 +14,21 @@ import type { Instance } from '@/types/instance'
 import type { HealthStatus } from '@/lib/openclaw/health'
 
 export function InstanceOverview({ instance: initialInstance }: { instance: Instance }) {
-  const isTransitional = initialInstance.status === 'provisioning'
+  const isProvisioning = initialInstance.status === 'provisioning'
   const { data: polledData } = usePolling<{ instance: Instance }>(
-    isTransitional ? `/api/instances/${initialInstance.id}` : null,
+    isProvisioning ? `/api/instances/${initialInstance.id}` : null,
     5000
   )
   const instance = polledData?.instance ?? initialInstance
 
   const plan = PLANS[instance.plan]
   const region = REGIONS[instance.region]
-  const { data: healthData } = usePolling<{ health: HealthStatus }>(
-    instance.status === 'running' ? `/api/health/${instance.id}` : null,
-    30000
+
+  const shouldPollHealth = instance.status === 'running' || instance.status === 'provisioning'
+  const healthInterval = instance.status === 'provisioning' ? 10000 : 30000
+  const { data: healthData } = usePolling<{ health: HealthStatus; status?: string }>(
+    shouldPollHealth && instance.ip_address ? `/api/health/${instance.id}` : null,
+    healthInterval
   )
 
   function copyIp() {
