@@ -4,7 +4,6 @@ import { usageEvents } from '@/lib/db/schema'
 import { eq } from 'drizzle-orm'
 import { supabaseAdmin } from '@/lib/supabase/admin'
 
-const STRIPE_METER_ID = process.env.STRIPE_METER_ID!
 const TOKEN_PRICE_EUR = 0.000003 // €0.003 per 1000 tokens
 
 /**
@@ -22,7 +21,8 @@ export async function syncMeterUsage(
   periodStart: Date,
   periodEnd: Date,
 ): Promise<{ synced: number }> {
-  if (!STRIPE_METER_ID) {
+  const meterId = process.env.STRIPE_METER_ID
+  if (!meterId) {
     console.warn('STRIPE_METER_ID not set, skipping meter sync')
     return { synced: 0 }
   }
@@ -34,7 +34,7 @@ export async function syncMeterUsage(
     return { synced: 0 }
   }
 
-  const summaries = await fetchAllSummaries(stripeCustomerId, startTime, endTime)
+  const summaries = await fetchAllSummaries(meterId, stripeCustomerId, startTime, endTime)
 
   let synced = 0
   for (const summary of summaries) {
@@ -86,6 +86,7 @@ export async function syncMeterUsage(
 }
 
 async function fetchAllSummaries(
+  meterId: string,
   stripeCustomerId: string,
   startTime: number,
   endTime: number,
@@ -102,7 +103,7 @@ async function fetchAllSummaries(
 
   while (hasMore) {
     const page = await stripe.billing.meters.listEventSummaries(
-      STRIPE_METER_ID,
+      meterId,
       {
         customer: stripeCustomerId,
         start_time: startTime,
