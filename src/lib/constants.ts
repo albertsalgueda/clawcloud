@@ -1,35 +1,34 @@
 export const PLANS = {
   starter: {
     name: 'Starter',
-    price_eur: 9,
+    price_eur: 5.99,
+    hetzner_cost: 3.99,
     vcpu: 2,
     ram_gb: 4,
     hetzner_type: 'cx23',
-    max_instances: 1,
-    markup_pct: 30,
     get stripe_price_id() { return process.env.STRIPE_PRICE_STARTER ?? '' },
   },
   pro: {
     name: 'Pro',
-    price_eur: 29,
+    price_eur: 9.99,
+    hetzner_cost: 6.49,
     vcpu: 4,
     ram_gb: 8,
     hetzner_type: 'cx33',
-    max_instances: 3,
-    markup_pct: 25,
     get stripe_price_id() { return process.env.STRIPE_PRICE_PRO ?? '' },
   },
   business: {
     name: 'Business',
-    price_eur: 79,
+    price_eur: 17.99,
+    hetzner_cost: 11.99,
     vcpu: 8,
     ram_gb: 16,
     hetzner_type: 'cx43',
-    max_instances: 10,
-    markup_pct: 20,
     get stripe_price_id() { return process.env.STRIPE_PRICE_BUSINESS ?? '' },
   },
 } as const
+
+export const MAX_INSTANCES_PER_ORG = 50
 
 export type PlanKey = keyof typeof PLANS
 

@@ -116,7 +116,7 @@ export function CreateInstanceForm() {
                     {p.ram_gb} GB RAM
                   </div>
                   <div className="text-muted-foreground/70">
-                    Up to {p.max_instances} instance{p.max_instances > 1 ? 's' : ''}
+                    per instance
                   </div>
                 </div>
               </button>
@@ -139,10 +139,10 @@ export function CreateInstanceForm() {
         </Select>
       </div>
 
-      <div className="rounded-2xl border border-border bg-background p-5">
+      <div className="rounded-2xl border border-border bg-background p-5 space-y-3">
         <div className="flex items-center justify-between gap-4 text-sm">
           <div>
-            <div className="text-xs text-muted-foreground">Monthly estimate</div>
+            <div className="text-xs text-muted-foreground">Compute cost per instance</div>
             <div className="mt-2 text-2xl font-medium">{formatCurrency(selectedPlan.price_eur)}/mo</div>
           </div>
           <div className="text-right text-xs leading-5 text-muted-foreground">
@@ -151,6 +151,9 @@ export function CreateInstanceForm() {
             {selectedPlan.ram_gb} GB RAM
           </div>
         </div>
+        <p className="text-xs text-muted-foreground/70">
+          AI token usage is metered and billed separately based on actual consumption.
+        </p>
       </div>
 
       <Button type="submit" disabled={loading} className="h-12 w-full rounded-2xl text-sm font-medium">

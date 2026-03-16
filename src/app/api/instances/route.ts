@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server'
 import { requireAuth, canManageInstance } from '@/lib/auth'
 import { supabaseAdmin } from '@/lib/supabase/admin'
 import { logInstanceEvent } from '@/lib/control-plane'
-import { PLAN_PRICES } from '@/lib/constants'
+import { PLAN_PRICES, MAX_INSTANCES_PER_ORG } from '@/lib/constants'
 import { createInstanceCheckout } from '@/lib/stripe/subscriptions'
 import { ensureStripeCustomer } from '@/lib/stripe/ensure-customer'
 import { generateSlug } from '@/lib/utils'
@@ -62,11 +62,11 @@ export async function POST(req: Request) {
     .from('instances')
     .select('*', { count: 'exact', head: true })
     .eq('org_id', org.id)
-    .not('status', 'in', '("deleted","deleting")')
+    .in('status', ['provisioning', 'running', 'stopped'])
 
-  if ((count ?? 0) >= org.max_instances) {
+  if ((count ?? 0) >= MAX_INSTANCES_PER_ORG) {
     return NextResponse.json(
-      { error: `Instance limit reached (${org.max_instances})` },
+      { error: `Instance limit reached (${MAX_INSTANCES_PER_ORG})` },
       { status: 403 }
     )
   }
