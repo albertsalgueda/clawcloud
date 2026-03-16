@@ -1,21 +1,36 @@
 import type { Organization } from '@/lib/auth'
 import type { Instance } from '@/types/instance'
 
-interface OpenClawConfig {
+export interface OpenClawConfig {
   gateway: {
-    auth: { token: string }
+    auth: { mode: string; token: string }
     controlUi: { allowedOrigins: string[] }
+    bind: string
   }
-  models: {
-    providers: Record<string, {
-      apiKey: string
-      baseUrl: string
-      headers: Record<string, string>
-    }>
-    default: string
-    available: string[]
+  agents: {
+    defaults: {
+      model: { primary: string }
+    }
   }
+  models: Record<string, {
+    provider: string
+    apiKey: string
+    baseUrl: string
+    headers: Record<string, string>
+  }>
 }
+
+const AI_GATEWAY_BASE_URL = 'https://gateway.ai.vercel.app/v1'
+
+const DEFAULT_MODEL = 'anthropic/claude-sonnet-4.6'
+
+const AVAILABLE_MODELS = [
+  { id: 'anthropic/claude-sonnet-4.6', provider: 'anthropic' },
+  { id: 'anthropic/claude-opus-4.6', provider: 'anthropic' },
+  { id: 'openai/gpt-4o', provider: 'openai' },
+  { id: 'openai/o3-mini', provider: 'openai' },
+  { id: 'google/gemini-2.5-pro', provider: 'google' },
+]
 
 export function generateOpenClawConfig(
   _instance: Instance,
@@ -30,32 +45,34 @@ export function generateOpenClawConfig(
     )
   }
 
+  const billingHeaders = {
+    'stripe-customer-id': org.stripe_customer_id,
+    'stripe-restricted-access-key': '${STRIPE_RESTRICTED_KEY}',
+  }
+
+  const models: OpenClawConfig['models'] = {}
+  for (const model of AVAILABLE_MODELS) {
+    models[model.id] = {
+      provider: model.provider,
+      apiKey: '${AI_GATEWAY_API_KEY}',
+      baseUrl: AI_GATEWAY_BASE_URL,
+      headers: billingHeaders,
+    }
+  }
+
   return {
     gateway: {
-      auth: { token: gatewayToken },
+      auth: { mode: 'token', token: gatewayToken },
       controlUi: {
         allowedOrigins: [dashboardUrl],
       },
+      bind: 'lan',
     },
-    models: {
-      providers: {
-        'vercel-ai-gateway': {
-          apiKey: '${AI_GATEWAY_API_KEY}',
-          baseUrl: 'https://gateway.ai.vercel.app/v1',
-          headers: {
-            'stripe-customer-id': org.stripe_customer_id,
-            'stripe-restricted-access-key': '${STRIPE_RESTRICTED_KEY}',
-          },
-        },
+    agents: {
+      defaults: {
+        model: { primary: DEFAULT_MODEL },
       },
-      default: 'vercel-ai-gateway/anthropic/claude-sonnet-4.6',
-      available: [
-        'vercel-ai-gateway/anthropic/claude-sonnet-4.6',
-        'vercel-ai-gateway/anthropic/claude-opus-4.6',
-        'vercel-ai-gateway/openai/gpt-4o',
-        'vercel-ai-gateway/openai/o3-mini',
-        'vercel-ai-gateway/google/gemini-2.5-pro',
-      ],
     },
+    models,
   }
 }

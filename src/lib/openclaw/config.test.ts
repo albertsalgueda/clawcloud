@@ -59,7 +59,7 @@ describe('generateOpenClawConfig', () => {
     ).toThrow('has no stripe_customer_id')
   })
 
-  it('generates valid config with stripe headers', () => {
+  it('generates valid OpenClaw config with correct gateway auth', () => {
     const org = makeOrg({ stripe_customer_id: 'cus_abc123' })
     const config = generateOpenClawConfig(
       makeInstance(),
@@ -68,17 +68,13 @@ describe('generateOpenClawConfig', () => {
       'https://my-instance.agentcomputers.app'
     )
 
+    expect(config.gateway.auth.mode).toBe('token')
     expect(config.gateway.auth.token).toBe('gateway-token-xyz')
+    expect(config.gateway.bind).toBe('lan')
     expect(config.gateway.controlUi.allowedOrigins).toEqual(['https://my-instance.agentcomputers.app'])
-
-    const provider = config.models.providers['vercel-ai-gateway']
-    expect(provider).toBeDefined()
-    expect(provider.headers['stripe-customer-id']).toBe('cus_abc123')
-    expect(provider.headers['stripe-restricted-access-key']).toBe('${STRIPE_RESTRICTED_KEY}')
-    expect(provider.baseUrl).toBe('https://gateway.ai.vercel.app/v1')
   })
 
-  it('includes all expected models', () => {
+  it('sets default model as object with primary key', () => {
     const config = generateOpenClawConfig(
       makeInstance(),
       makeOrg(),
@@ -86,9 +82,29 @@ describe('generateOpenClawConfig', () => {
       'https://test.example.com'
     )
 
-    expect(config.models.available).toContain('vercel-ai-gateway/anthropic/claude-sonnet-4.6')
-    expect(config.models.available).toContain('vercel-ai-gateway/openai/gpt-4o')
-    expect(config.models.available.length).toBeGreaterThanOrEqual(5)
-    expect(config.models.default).toContain('claude-sonnet')
+    expect(config.agents.defaults.model).toEqual({ primary: 'anthropic/claude-sonnet-4.6' })
+  })
+
+  it('configures all models with AI Gateway baseUrl and billing headers', () => {
+    const org = makeOrg({ stripe_customer_id: 'cus_abc123' })
+    const config = generateOpenClawConfig(
+      makeInstance(),
+      org,
+      'token',
+      'https://test.example.com'
+    )
+
+    const modelKeys = Object.keys(config.models)
+    expect(modelKeys).toContain('anthropic/claude-sonnet-4.6')
+    expect(modelKeys).toContain('openai/gpt-4o')
+    expect(modelKeys).toContain('google/gemini-2.5-pro')
+    expect(modelKeys.length).toBeGreaterThanOrEqual(5)
+
+    for (const model of Object.values(config.models)) {
+      expect(model.baseUrl).toBe('https://gateway.ai.vercel.app/v1')
+      expect(model.apiKey).toBe('${AI_GATEWAY_API_KEY}')
+      expect(model.headers['stripe-customer-id']).toBe('cus_abc123')
+      expect(model.headers['stripe-restricted-access-key']).toBe('${STRIPE_RESTRICTED_KEY}')
+    }
   })
 })

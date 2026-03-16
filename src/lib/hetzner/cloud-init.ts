@@ -50,8 +50,9 @@ write_files:
       INSTANCE_ID=${params.instanceId}
       CUSTOMER_ID=${params.customerId}
 
-  - path: /opt/openclaw/openclaw.json
+  - path: /opt/openclaw/config/openclaw.json
     permissions: '0644'
+    owner: '1000:1000'
     content: |
 ${indentedConfig}
 
@@ -65,15 +66,16 @@ ${indentedConfig}
           restart: always
           env_file: .env
           volumes:
-            - ./openclaw.json:/home/openclaw/.openclaw/openclaw.json
-            - workspace:/home/openclaw/workspace
+            - ./config:/home/node/.openclaw
+            - workspace:/home/node/workspace
           ports:
             - "127.0.0.1:18789:18789"
           healthcheck:
             test: ["CMD", "curl", "-f", "http://localhost:18789/healthz"]
-            interval: 30s
-            timeout: 10s
-            retries: 3
+            interval: 15s
+            timeout: 5s
+            retries: 5
+            start_period: 30s
 
         clawport:
           image: node:22-slim
@@ -106,16 +108,6 @@ ${indentedConfig}
           reverse_proxy localhost:3000
       }
 
-  - path: /opt/openclaw/health-reporter.sh
-    permissions: '0755'
-    content: |
-      #!/bin/bash
-      while true; do
-        STATUS=$(docker inspect --format='{{.State.Health.Status}}' openclaw 2>/dev/null || echo "not_running")
-        echo "$STATUS" > /opt/openclaw/health-status
-        sleep 30
-      done
-
 runcmd:
   - curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/gpg.key' | gpg --dearmor -o /usr/share/keyrings/caddy-stable-archive-keyring.gpg
   - curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/debian.deb.txt' | tee /etc/apt/sources.list.d/caddy-stable.list
@@ -125,8 +117,9 @@ runcmd:
   - systemctl start caddy
   - systemctl enable docker
   - systemctl start docker
+  - mkdir -p /opt/openclaw/config
+  - chown -R 1000:1000 /opt/openclaw/config
   - cd /opt/openclaw && docker compose pull
   - cd /opt/openclaw && docker compose up -d
-  - nohup /opt/openclaw/health-reporter.sh &
 `
 }

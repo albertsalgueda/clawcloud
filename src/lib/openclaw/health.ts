@@ -4,19 +4,28 @@ export interface HealthStatus {
   details?: Record<string, unknown>
 }
 
-export async function checkInstanceHealth(ip: string): Promise<HealthStatus> {
+async function probe(url: string): Promise<{ ok: boolean; latency: number; body?: Record<string, unknown> }> {
   const start = Date.now()
   try {
-    const res = await fetch(`http://${ip}:3000/health`, {
-      signal: AbortSignal.timeout(5000),
-    })
+    const res = await fetch(url, { signal: AbortSignal.timeout(5000) })
     const latency = Date.now() - start
-    if (res.ok) {
-      const body = await res.json().catch(() => ({}))
-      return { status: 'healthy', latency_ms: latency, details: body }
-    }
-    return { status: 'unhealthy', latency_ms: latency }
+    const body = await res.json().catch(() => ({}))
+    return { ok: res.ok, latency, body }
   } catch {
-    return { status: 'unreachable', latency_ms: Date.now() - start }
+    return { ok: false, latency: Date.now() - start }
   }
+}
+
+export async function checkInstanceHealth(ip: string): Promise<HealthStatus> {
+  const clawport = await probe(`http://${ip}:3000/health`)
+  if (clawport.ok) {
+    return { status: 'healthy', latency_ms: clawport.latency, details: { ...clawport.body, service: 'clawport' } }
+  }
+
+  const gateway = await probe(`http://${ip}:18789/healthz`)
+  if (gateway.ok) {
+    return { status: 'unhealthy', latency_ms: gateway.latency, details: { ...gateway.body, service: 'openclaw-gateway', note: 'Gateway up, ClawPort not ready' } }
+  }
+
+  return { status: 'unreachable', latency_ms: clawport.latency + gateway.latency }
 }
