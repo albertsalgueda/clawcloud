@@ -76,26 +76,26 @@ describe('generateOpenClawConfig', () => {
     expect(config.gateway.controlUi.allowedOrigins).toEqual(['https://my-instance.agentcomputers.app'])
   })
 
-  it('sets default model as object with primary key', () => {
+  it('sets default model with primary and fallbacks', () => {
     const config = generateOpenClawConfig(makeInstance(), makeOrg(), defaultParams)
-    expect(config.agents.defaults.model).toEqual({ primary: 'anthropic/claude-sonnet-4.6' })
+    expect(config.agents.defaults.model.primary).toBe('anthropic/claude-sonnet-4-5')
+    expect(config.agents.defaults.model.fallbacks.length).toBeGreaterThan(0)
+    expect(config.agents.defaults.model.fallbacks).not.toContain(config.agents.defaults.model.primary)
   })
 
-  it('configures all models with actual API keys and billing headers', () => {
+  it('configures AI Gateway provider with billing headers', () => {
     const org = makeOrg({ stripe_customer_id: 'cus_abc123' })
     const config = generateOpenClawConfig(makeInstance(), org, defaultParams)
 
-    const modelKeys = Object.keys(config.models)
-    expect(modelKeys).toContain('anthropic/claude-sonnet-4.6')
-    expect(modelKeys).toContain('openai/gpt-4o')
-    expect(modelKeys).toContain('google/gemini-2.5-pro')
-    expect(modelKeys.length).toBeGreaterThanOrEqual(5)
-
-    for (const model of Object.values(config.models)) {
-      expect(model.baseUrl).toBe('https://gateway.ai.vercel.app/v1')
-      expect(model.apiKey).toBe('vck_test_key')
-      expect(model.headers['stripe-customer-id']).toBe('cus_abc123')
-      expect(model.headers['stripe-restricted-access-key']).toBe('rk_test_key')
-    }
+    expect(config.models.mode).toBe('merge')
+    const provider = config.models.providers['ai-gateway']
+    expect(provider).toBeDefined()
+    expect(provider.baseUrl).toBe('https://gateway.ai.vercel.app/v1')
+    expect(provider.apiKey).toBe('vck_test_key')
+    expect(provider.api).toBe('openai-responses')
+    expect(provider.headers['stripe-customer-id']).toBe('cus_abc123')
+    expect(provider.headers['stripe-restricted-access-key']).toBe('rk_test_key')
+    expect(provider.models.length).toBeGreaterThanOrEqual(5)
+    expect(provider.models.map(m => m.id)).toContain('openai/gpt-4o')
   })
 })

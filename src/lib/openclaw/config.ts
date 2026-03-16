@@ -9,27 +9,31 @@ export interface OpenClawConfig {
   }
   agents: {
     defaults: {
-      model: { primary: string }
+      model: { primary: string; fallbacks: string[] }
     }
   }
-  models: Record<string, {
-    provider: string
-    apiKey: string
-    baseUrl: string
-    headers: Record<string, string>
-  }>
+  models: {
+    mode: string
+    providers: Record<string, {
+      baseUrl: string
+      apiKey: string
+      api: string
+      headers: Record<string, string>
+      models: Array<{ id: string; name: string }>
+    }>
+  }
 }
 
 const AI_GATEWAY_BASE_URL = 'https://gateway.ai.vercel.app/v1'
 
-const DEFAULT_MODEL = 'anthropic/claude-sonnet-4.6'
+const DEFAULT_MODEL = 'anthropic/claude-sonnet-4-5'
 
 const AVAILABLE_MODELS = [
-  { id: 'anthropic/claude-sonnet-4.6', provider: 'anthropic' },
-  { id: 'anthropic/claude-opus-4.6', provider: 'anthropic' },
-  { id: 'openai/gpt-4o', provider: 'openai' },
-  { id: 'openai/o3-mini', provider: 'openai' },
-  { id: 'google/gemini-2.5-pro', provider: 'google' },
+  { id: 'anthropic/claude-sonnet-4-5', name: 'Claude Sonnet 4.5' },
+  { id: 'anthropic/claude-opus-4-6', name: 'Claude Opus 4.6' },
+  { id: 'openai/gpt-4o', name: 'GPT-4o' },
+  { id: 'openai/o3-mini', name: 'o3-mini' },
+  { id: 'google/gemini-2.5-pro', name: 'Gemini 2.5 Pro' },
 ]
 
 interface ConfigParams {
@@ -56,16 +60,6 @@ export function generateOpenClawConfig(
     'stripe-restricted-access-key': params.stripeRestrictedKey,
   }
 
-  const models: OpenClawConfig['models'] = {}
-  for (const model of AVAILABLE_MODELS) {
-    models[model.id] = {
-      provider: model.provider,
-      apiKey: params.aiGatewayApiKey,
-      baseUrl: AI_GATEWAY_BASE_URL,
-      headers: billingHeaders,
-    }
-  }
-
   return {
     gateway: {
       auth: { mode: 'token', token: params.gatewayToken },
@@ -76,9 +70,23 @@ export function generateOpenClawConfig(
     },
     agents: {
       defaults: {
-        model: { primary: DEFAULT_MODEL },
+        model: {
+          primary: DEFAULT_MODEL,
+          fallbacks: AVAILABLE_MODELS.filter(m => m.id !== DEFAULT_MODEL).map(m => m.id),
+        },
       },
     },
-    models,
+    models: {
+      mode: 'merge',
+      providers: {
+        'ai-gateway': {
+          baseUrl: AI_GATEWAY_BASE_URL,
+          apiKey: params.aiGatewayApiKey,
+          api: 'openai-responses',
+          headers: billingHeaders,
+          models: AVAILABLE_MODELS.map(m => ({ id: m.id, name: m.name })),
+        },
+      },
+    },
   }
 }
