@@ -44,29 +44,31 @@ function makeInstance(overrides: Partial<Instance> = {}): Instance {
   }
 }
 
+const defaultParams = {
+  gatewayToken: 'gateway-token-xyz',
+  dashboardUrl: 'https://my-instance.agentcomputers.app',
+  aiGatewayApiKey: 'vck_test_key',
+  stripeRestrictedKey: 'rk_test_key',
+}
+
 describe('generateOpenClawConfig', () => {
   it('throws if org has no stripe_customer_id', () => {
     const org = makeOrg({ stripe_customer_id: null })
     expect(() =>
-      generateOpenClawConfig(makeInstance(), org, 'token123', 'https://test.example.com')
+      generateOpenClawConfig(makeInstance(), org, defaultParams)
     ).toThrow('has no stripe_customer_id')
   })
 
   it('throws if stripe_customer_id is empty string', () => {
     const org = makeOrg({ stripe_customer_id: '' as unknown as null })
     expect(() =>
-      generateOpenClawConfig(makeInstance(), org, 'token123', 'https://test.example.com')
+      generateOpenClawConfig(makeInstance(), org, defaultParams)
     ).toThrow('has no stripe_customer_id')
   })
 
   it('generates valid OpenClaw config with correct gateway auth', () => {
     const org = makeOrg({ stripe_customer_id: 'cus_abc123' })
-    const config = generateOpenClawConfig(
-      makeInstance(),
-      org,
-      'gateway-token-xyz',
-      'https://my-instance.agentcomputers.app'
-    )
+    const config = generateOpenClawConfig(makeInstance(), org, defaultParams)
 
     expect(config.gateway.auth.mode).toBe('token')
     expect(config.gateway.auth.token).toBe('gateway-token-xyz')
@@ -75,24 +77,13 @@ describe('generateOpenClawConfig', () => {
   })
 
   it('sets default model as object with primary key', () => {
-    const config = generateOpenClawConfig(
-      makeInstance(),
-      makeOrg(),
-      'token',
-      'https://test.example.com'
-    )
-
+    const config = generateOpenClawConfig(makeInstance(), makeOrg(), defaultParams)
     expect(config.agents.defaults.model).toEqual({ primary: 'anthropic/claude-sonnet-4.6' })
   })
 
-  it('configures all models with AI Gateway baseUrl and billing headers', () => {
+  it('configures all models with actual API keys and billing headers', () => {
     const org = makeOrg({ stripe_customer_id: 'cus_abc123' })
-    const config = generateOpenClawConfig(
-      makeInstance(),
-      org,
-      'token',
-      'https://test.example.com'
-    )
+    const config = generateOpenClawConfig(makeInstance(), org, defaultParams)
 
     const modelKeys = Object.keys(config.models)
     expect(modelKeys).toContain('anthropic/claude-sonnet-4.6')
@@ -102,9 +93,9 @@ describe('generateOpenClawConfig', () => {
 
     for (const model of Object.values(config.models)) {
       expect(model.baseUrl).toBe('https://gateway.ai.vercel.app/v1')
-      expect(model.apiKey).toBe('${AI_GATEWAY_API_KEY}')
+      expect(model.apiKey).toBe('vck_test_key')
       expect(model.headers['stripe-customer-id']).toBe('cus_abc123')
-      expect(model.headers['stripe-restricted-access-key']).toBe('${STRIPE_RESTRICTED_KEY}')
+      expect(model.headers['stripe-restricted-access-key']).toBe('rk_test_key')
     }
   })
 })

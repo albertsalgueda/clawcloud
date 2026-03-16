@@ -32,11 +32,17 @@ const AVAILABLE_MODELS = [
   { id: 'google/gemini-2.5-pro', provider: 'google' },
 ]
 
+interface ConfigParams {
+  gatewayToken: string
+  dashboardUrl: string
+  aiGatewayApiKey: string
+  stripeRestrictedKey: string
+}
+
 export function generateOpenClawConfig(
   _instance: Instance,
   org: Organization,
-  gatewayToken: string,
-  dashboardUrl: string,
+  params: ConfigParams,
 ): OpenClawConfig {
   if (!org.stripe_customer_id) {
     throw new Error(
@@ -47,14 +53,14 @@ export function generateOpenClawConfig(
 
   const billingHeaders = {
     'stripe-customer-id': org.stripe_customer_id,
-    'stripe-restricted-access-key': '${STRIPE_RESTRICTED_KEY}',
+    'stripe-restricted-access-key': params.stripeRestrictedKey,
   }
 
   const models: OpenClawConfig['models'] = {}
   for (const model of AVAILABLE_MODELS) {
     models[model.id] = {
       provider: model.provider,
-      apiKey: '${AI_GATEWAY_API_KEY}',
+      apiKey: params.aiGatewayApiKey,
       baseUrl: AI_GATEWAY_BASE_URL,
       headers: billingHeaders,
     }
@@ -62,9 +68,9 @@ export function generateOpenClawConfig(
 
   return {
     gateway: {
-      auth: { mode: 'token', token: gatewayToken },
+      auth: { mode: 'token', token: params.gatewayToken },
       controlUi: {
-        allowedOrigins: [dashboardUrl],
+        allowedOrigins: [params.dashboardUrl],
       },
       bind: 'lan',
     },

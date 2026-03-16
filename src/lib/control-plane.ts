@@ -19,7 +19,12 @@ export async function provisionInstance(
   const gatewayToken = crypto.randomBytes(32).toString('hex')
   const dashboardUrl = `https://${instance.slug}.${INSTANCE_DOMAIN}`
 
-  const openclawConfig = generateOpenClawConfig(instance, org, gatewayToken, dashboardUrl)
+  const openclawConfig = generateOpenClawConfig(instance, org, {
+    gatewayToken,
+    dashboardUrl,
+    aiGatewayApiKey: process.env.VERCEL_AI_GATEWAY_KEY ?? '',
+    stripeRestrictedKey: process.env.STRIPE_RESTRICTED_ACCESS_KEY ?? '',
+  })
 
   const userData = generateCloudInit({
     instanceId: instance.id,
