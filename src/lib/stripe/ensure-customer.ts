@@ -4,7 +4,12 @@ import type { Organization } from '@/lib/auth'
 
 export async function ensureStripeCustomer(org: Organization): Promise<string | null> {
   if (org.stripe_customer_id) {
-    return org.stripe_customer_id
+    try {
+      await stripe.customers.retrieve(org.stripe_customer_id)
+      return org.stripe_customer_id
+    } catch {
+      console.warn(`Stripe customer ${org.stripe_customer_id} not found in current mode, creating new one`)
+    }
   }
 
   try {

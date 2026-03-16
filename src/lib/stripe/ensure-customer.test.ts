@@ -4,6 +4,7 @@ vi.mock('./client', () => ({
   stripe: {
     customers: {
       create: vi.fn(),
+      retrieve: vi.fn(),
     },
   },
 }))
@@ -42,12 +43,29 @@ describe('ensureStripeCustomer', () => {
     vi.clearAllMocks()
   })
 
-  it('returns existing stripe_customer_id without calling Stripe', async () => {
+  it('returns existing stripe_customer_id if valid in current mode', async () => {
     const org = makeOrg({ stripe_customer_id: 'cus_existing' })
+    vi.mocked(stripe.customers.retrieve).mockResolvedValue({ id: 'cus_existing' } as any)
     const result = await ensureStripeCustomer(org)
 
     expect(result).toBe('cus_existing')
+    expect(stripe.customers.retrieve).toHaveBeenCalledWith('cus_existing')
     expect(stripe.customers.create).not.toHaveBeenCalled()
+  })
+
+  it('creates new customer if existing ID is from wrong Stripe mode', async () => {
+    const org = makeOrg({ stripe_customer_id: 'cus_live_mode_id' })
+    vi.mocked(stripe.customers.retrieve).mockRejectedValue(new Error('No such customer'))
+    vi.mocked(stripe.customers.create).mockResolvedValue({ id: 'cus_test_new' } as any)
+
+    const mockEq = vi.fn().mockResolvedValue({ data: null, error: null })
+    const mockUpdate = vi.fn(() => ({ eq: mockEq }))
+    vi.mocked(supabaseAdmin.from).mockReturnValue({ update: mockUpdate } as any)
+
+    const result = await ensureStripeCustomer(org)
+
+    expect(result).toBe('cus_test_new')
+    expect(stripe.customers.create).toHaveBeenCalled()
   })
 
   it('creates a Stripe customer when none exists', async () => {
