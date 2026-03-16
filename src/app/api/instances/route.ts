@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { requireAuth, canManageInstance } from '@/lib/auth'
+import { requireAuth } from '@/lib/auth'
 import { supabaseAdmin } from '@/lib/supabase/admin'
 import { logInstanceEvent } from '@/lib/control-plane'
 import { PLAN_PRICES, MAX_INSTANCES_PER_ORG } from '@/lib/constants'
@@ -45,7 +45,11 @@ export async function POST(req: Request) {
 
   const parsed = createInstanceSchema.safeParse(body)
   if (!parsed.success) {
-    return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 })
+    const fieldErrors = parsed.error.flatten().fieldErrors
+    const msg = Object.entries(fieldErrors)
+      .map(([k, v]) => `${k}: ${(v as string[]).join(', ')}`)
+      .join('; ')
+    return NextResponse.json({ error: msg || 'Invalid input' }, { status: 400 })
   }
 
   const stripeCustomerId = await ensureStripeCustomer(org)
@@ -105,6 +109,17 @@ export async function POST(req: Request) {
       successUrl: `${appUrl}/${org.slug}/instances/${instance.id}?checkout=success`,
       cancelUrl: `${appUrl}/${org.slug}/instances/new?checkout=cancelled`,
     })
+
+    if (!session.url) {
+      await supabaseAdmin
+        .from('instances')
+        .update({ status: 'error' })
+        .eq('id', instance.id)
+      return NextResponse.json(
+        { error: 'Failed to create checkout session. Please try again.' },
+        { status: 500 }
+      )
+    }
 
     return NextResponse.json({
       instance: { ...instance, status: 'pending_payment' },

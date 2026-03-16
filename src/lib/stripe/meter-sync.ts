@@ -117,6 +117,8 @@ async function fetchAllSummaries(
     hasMore = page.has_more
     if (page.data.length > 0) {
       startingAfter = page.data[page.data.length - 1].id
+    } else {
+      break
     }
   }
 

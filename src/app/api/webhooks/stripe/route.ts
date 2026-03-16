@@ -22,6 +22,10 @@ export async function POST(req: Request) {
     await handleStripeEvent(event)
   } catch (err) {
     console.error('Stripe webhook handler error:', err)
+    return NextResponse.json(
+      { error: 'Webhook handler failed' },
+      { status: 500 }
+    )
   }
 
   return NextResponse.json({ received: true })

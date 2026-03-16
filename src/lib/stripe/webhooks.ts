@@ -43,7 +43,8 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session): Promis
 
   const subscription = await stripe.subscriptions.retrieve(subscriptionId)
 
-  await supabaseAdmin
+  // Only transition from pending_payment to prevent duplicate provisioning
+  const { data: updated, error: updateError } = await supabaseAdmin
     .from('instances')
     .update({
       status: 'provisioning',
@@ -51,17 +52,19 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session): Promis
       stripe_subscription_item_id: subscription.items.data[0]?.id,
     })
     .eq('id', instanceId)
+    .eq('status', 'pending_payment')
+    .select()
+    .single()
+
+  if (updateError || !updated) {
+    console.log(`Instance ${instanceId} already processed (not in pending_payment), skipping`)
+    return
+  }
 
   await logInstanceEvent(instanceId, 'payment_completed', {
     subscription_id: subscription.id,
     checkout_session_id: session.id,
   })
-
-  const { data: instance } = await supabaseAdmin
-    .from('instances')
-    .select('*')
-    .eq('id', instanceId)
-    .single()
 
   const { data: org } = await supabaseAdmin
     .from('organizations')
@@ -69,13 +72,13 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session): Promis
     .eq('id', orgId)
     .single()
 
-  if (!instance || !org) {
-    console.error(`Cannot provision: instance=${!!instance} org=${!!org}`)
+  if (!org) {
+    console.error(`Cannot provision: org ${orgId} not found`)
     return
   }
 
   try {
-    await provisionInstance(instance, org as Organization)
+    await provisionInstance(updated, org as Organization)
   } catch (err) {
     console.error('Provisioning failed after checkout:', err)
     await supabaseAdmin
