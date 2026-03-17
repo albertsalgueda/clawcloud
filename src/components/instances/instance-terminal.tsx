@@ -67,11 +67,14 @@ export function InstanceTerminal({ instance }: { instance: Instance }) {
             {loading && <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />}
             Reconnect
           </Button>
-          <a href={consoleUrl} target="_blank" rel="noopener noreferrer">
-            <Button variant="outline" size="sm" nativeButton={false}>
-              <ExternalLink className="mr-1.5 h-3.5 w-3.5" />
-              Open in new tab
-            </Button>
+          <a
+            href={consoleUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-1.5 rounded-md border border-border bg-background px-3 py-1.5 text-xs font-medium transition-colors hover:bg-accent"
+          >
+            <ExternalLink className="h-3.5 w-3.5" />
+            Open in new tab
           </a>
         </div>
       </div>

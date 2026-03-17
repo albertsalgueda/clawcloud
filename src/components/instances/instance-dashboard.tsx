@@ -1,7 +1,6 @@
 'use client'
 
 import { ExternalLink } from 'lucide-react'
-import { Button } from '@/components/ui/button'
 import type { Instance } from '@/types/instance'
 
 export function InstanceDashboard({ instance }: { instance: Instance }) {
@@ -29,11 +28,14 @@ export function InstanceDashboard({ instance }: { instance: Instance }) {
           ClawPort Agent Dashboard
         </p>
         <div className="flex gap-2">
-          <a href={iframeSrc} target="_blank" rel="noopener noreferrer">
-            <Button variant="outline" size="sm" nativeButton={false}>
-              <ExternalLink className="mr-1.5 h-3.5 w-3.5" />
-              Open in new tab
-            </Button>
+          <a
+            href={iframeSrc}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-1.5 rounded-md border border-border bg-background px-3 py-1.5 text-xs font-medium transition-colors hover:bg-accent"
+          >
+            <ExternalLink className="h-3.5 w-3.5" />
+            Open in new tab
           </a>
         </div>
       </div>
