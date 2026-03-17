@@ -27,7 +27,7 @@ function buildDockerCompose(params: CloudInitParams): string {
       - ./config:/home/node/.openclaw
       - workspace:/home/node/workspace
     ports:
-      - "127.0.0.1:18789:18789"
+      - "18789:18789"
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:18789/healthz"]
       interval: 15s
@@ -49,7 +49,7 @@ function buildDockerCompose(params: CloudInitParams): string {
     volumes:
       - workspace:/workspace:ro
     ports:
-      - "127.0.0.1:3000:3000"
+      - "3000:3000"
     depends_on:
       openclaw:
         condition: service_healthy
