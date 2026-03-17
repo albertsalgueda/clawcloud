@@ -2,9 +2,7 @@ interface CloudInitParams {
   instanceId: string
   customerId: string
   slug: string
-  stripeCustomerId: string
-  aiGatewayApiKey: string
-  stripeRestrictedKey: string
+  proxyBaseUrl: string
   openclawConfig: string
   openclawVersion: string
   gatewayToken: string
@@ -63,10 +61,7 @@ volumes:
 }
 
 function buildEnvFile(params: CloudInitParams): string {
-  return `AI_GATEWAY_URL=https://gateway.ai.vercel.app/v1
-AI_GATEWAY_API_KEY=${params.aiGatewayApiKey}
-STRIPE_CUSTOMER_ID=${params.stripeCustomerId}
-STRIPE_RESTRICTED_KEY=${params.stripeRestrictedKey}
+  return `AI_GATEWAY_URL=${params.proxyBaseUrl}
 INSTANCE_ID=${params.instanceId}
 CUSTOMER_ID=${params.customerId}
 `

@@ -3,6 +3,8 @@ import { stripe } from './client'
 import { supabaseAdmin } from '@/lib/supabase/admin'
 import { serverAction } from '@/lib/hetzner/servers'
 import { provisionInstance, logInstanceEvent } from '@/lib/control-plane'
+import { addCredits } from '@/lib/credits/balance'
+import { CREDIT_DEFAULTS } from '@/lib/constants'
 import type { Organization } from '@/lib/auth'
 
 export async function handleStripeEvent(event: Stripe.Event): Promise<void> {
@@ -19,11 +21,10 @@ export async function handleStripeEvent(event: Stripe.Event): Promise<void> {
       return handleInvoicePaid(event.data.object as Stripe.Invoice)
     case 'invoice.payment_failed':
       return handlePaymentFailed(event.data.object as Stripe.Invoice)
-    case 'billing.meter.created':
-    case 'billing.meter.updated':
-    case 'billing.meter.deactivated':
-    case 'billing.meter.reactivated':
-      return handleBillingMeterEvent(event)
+    case 'payment_intent.succeeded':
+      return handlePaymentIntentSucceeded(event.data.object as Stripe.PaymentIntent)
+    case 'payment_intent.payment_failed':
+      return handlePaymentIntentFailed(event.data.object as Stripe.PaymentIntent)
   }
 }
 
@@ -101,6 +102,44 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session): Promis
     return
   }
 
+  // Charge initial credits via off-session PaymentIntent
+  try {
+    if (org.stripe_customer_id) {
+      const customer = await stripe.customers.retrieve(org.stripe_customer_id)
+      if (!customer.deleted) {
+        const defaultPm =
+          typeof customer.invoice_settings?.default_payment_method === 'string'
+            ? customer.invoice_settings.default_payment_method
+            : customer.invoice_settings?.default_payment_method?.id
+
+        if (defaultPm) {
+          const pi = await stripe.paymentIntents.create({
+            amount: Math.round(CREDIT_DEFAULTS.INITIAL_CREDIT_EUR * 100),
+            currency: 'eur',
+            customer: org.stripe_customer_id,
+            payment_method: defaultPm,
+            off_session: true,
+            confirm: true,
+            metadata: {
+              type: 'credit_topup',
+              org_id: orgId,
+              reason: 'initial_credits',
+            },
+          })
+
+          if (pi.status === 'succeeded') {
+            await addCredits(orgId, CREDIT_DEFAULTS.INITIAL_CREDIT_EUR, {
+              stripePaymentIntentId: pi.id,
+              description: `Initial credits €${CREDIT_DEFAULTS.INITIAL_CREDIT_EUR.toFixed(2)}`,
+            })
+          }
+        }
+      }
+    }
+  } catch (err) {
+    console.error('Failed to charge initial credits:', err)
+  }
+
   try {
     await provisionInstance(instance, org as Organization)
   } catch (err) {
@@ -115,17 +154,52 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session): Promis
   }
 }
 
-async function handleBillingMeterEvent(event: Stripe.Event): Promise<void> {
-  const meter = event.data.object as { id?: string; display_name?: string; status?: string }
-  console.log(
-    `[stripe:${event.type}] meter=${meter.id ?? 'unknown'} ` +
-    `name="${meter.display_name ?? ''}" status=${meter.status ?? 'n/a'}`
-  )
+async function handlePaymentIntentSucceeded(pi: Stripe.PaymentIntent): Promise<void> {
+  const meta = pi.metadata ?? {}
+  if (meta.type !== 'credit_topup') return
+
+  const orgId = meta.org_id
+  if (!orgId) return
+
+  // Idempotency: check if credits were already added for this PI
+  const { data: existing } = await supabaseAdmin
+    .from('credit_transactions')
+    .select('id')
+    .eq('stripe_payment_intent_id', pi.id)
+    .limit(1)
+
+  if (existing && existing.length > 0) return
+
+  const amountEur = pi.amount / 100
+  await addCredits(orgId, amountEur, {
+    stripePaymentIntentId: pi.id,
+    description: meta.reason === 'initial_credits'
+      ? `Initial credits €${amountEur.toFixed(2)}`
+      : `Credit top-up €${amountEur.toFixed(2)}`,
+  })
+
+  // Clear auto-topup failure flag
+  await supabaseAdmin
+    .from('organizations')
+    .update({ auto_topup_failed: false })
+    .eq('id', orgId)
+}
+
+async function handlePaymentIntentFailed(pi: Stripe.PaymentIntent): Promise<void> {
+  const meta = pi.metadata ?? {}
+  if (meta.type !== 'credit_topup') return
+
+  const orgId = meta.org_id
+  if (!orgId) return
+
+  await supabaseAdmin
+    .from('organizations')
+    .update({ auto_topup_failed: true })
+    .eq('id', orgId)
 }
 
 async function handleSubscriptionCreated(_sub: Stripe.Subscription): Promise<void> {
   // Instance creation is handled in handleCheckoutCompleted.
-  // The subscription is linked to the instance at that point.
 }
 
 async function handleSubscriptionUpdated(sub: Stripe.Subscription): Promise<void> {

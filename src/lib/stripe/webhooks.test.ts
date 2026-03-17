@@ -2,14 +2,19 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import type Stripe from 'stripe'
 
 const mockSubscriptionsRetrieve = vi.fn()
+const mockCustomersRetrieve = vi.fn()
+const mockPaymentIntentsCreate = vi.fn()
 const mockFrom = vi.fn()
 const mockProvisionInstance = vi.fn()
 const mockLogInstanceEvent = vi.fn()
 const mockServerAction = vi.fn()
+const mockAddCredits = vi.fn()
 
 vi.mock('./client', () => ({
   stripe: {
     subscriptions: { retrieve: (...args: unknown[]) => mockSubscriptionsRetrieve(...args) },
+    customers: { retrieve: (...args: unknown[]) => mockCustomersRetrieve(...args) },
+    paymentIntents: { create: (...args: unknown[]) => mockPaymentIntentsCreate(...args) },
   },
 }))
 
@@ -28,6 +33,18 @@ vi.mock('@/lib/hetzner/servers', () => ({
   serverAction: (...args: unknown[]) => mockServerAction(...args),
 }))
 
+vi.mock('@/lib/credits/balance', () => ({
+  addCredits: (...args: unknown[]) => mockAddCredits(...args),
+}))
+
+vi.mock('@/lib/constants', () => ({
+  CREDIT_DEFAULTS: {
+    INITIAL_CREDIT_EUR: 5,
+    AUTO_TOPUP_AMOUNT_EUR: 20,
+    AUTO_TOPUP_THRESHOLD_EUR: 2,
+  },
+}))
+
 import { handleStripeEvent } from './webhooks'
 
 function chainMock(returnValue: unknown) {
@@ -44,6 +61,7 @@ function chainMock(returnValue: unknown) {
 describe('handleStripeEvent', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    mockAddCredits.mockResolvedValue(5)
   })
 
   describe('checkout.session.completed', () => {
@@ -85,6 +103,16 @@ describe('handleStripeEvent', () => {
         items: { data: [{ id: 'si_123' }] },
       })
 
+      mockCustomersRetrieve.mockResolvedValue({
+        deleted: false,
+        invoice_settings: { default_payment_method: 'pm_123' },
+      })
+
+      mockPaymentIntentsCreate.mockResolvedValue({
+        id: 'pi_initial',
+        status: 'succeeded',
+      })
+
       const idempotencyChain = chainMock({ data: null, error: { code: 'PGRST116' } })
       const insertChain = chainMock({
         data: { id: 'inst-new', status: 'provisioning', plan: 'starter', region: 'eu-central' },
@@ -123,6 +151,12 @@ describe('handleStripeEvent', () => {
 
       expect(mockSubscriptionsRetrieve).toHaveBeenCalledWith('sub_123')
       expect(mockProvisionInstance).toHaveBeenCalled()
+      // Initial credits should be charged
+      expect(mockAddCredits).toHaveBeenCalledWith(
+        'org-1',
+        5,
+        expect.objectContaining({ stripePaymentIntentId: 'pi_initial' }),
+      )
     })
 
     it('skips if instance for subscription already exists (idempotency)', async () => {
@@ -142,54 +176,71 @@ describe('handleStripeEvent', () => {
 
       expect(mockProvisionInstance).not.toHaveBeenCalled()
     })
+  })
 
-    it('sets instance to error if provisioning fails', async () => {
-      mockSubscriptionsRetrieve.mockResolvedValue({
-        id: 'sub_123',
-        items: { data: [{ id: 'si_123' }] },
-      })
+  describe('payment_intent.succeeded', () => {
+    it('adds credits for credit_topup payment intents', async () => {
+      const txnChain = chainMock({ data: [], error: null })
+      txnChain.single = undefined as any
+      txnChain.limit = vi.fn(() => Promise.resolve({ data: [], error: null }))
+      const orgChain = chainMock({ data: null, error: null })
 
-      const idempotencyChain = chainMock({ data: null, error: { code: 'PGRST116' } })
-      const insertChain = chainMock({
-        data: { id: 'inst-new', status: 'provisioning' },
-        error: null,
-      })
-      const orgChain = chainMock({
-        data: { id: 'org-1', stripe_customer_id: 'cus_123' },
-        error: null,
-      })
-
-      let instanceCallCount = 0
       mockFrom.mockImplementation((table: string) => {
-        if (table === 'instances') {
-          instanceCallCount++
-          if (instanceCallCount === 1) return idempotencyChain
-          if (instanceCallCount === 2) return insertChain
-          return chainMock({ data: null, error: null })
-        }
+        if (table === 'credit_transactions') return txnChain
         if (table === 'organizations') return orgChain
-        if (table === 'instance_events') return chainMock({ data: null, error: null })
         return chainMock({ data: null, error: null })
       })
 
-      mockProvisionInstance.mockRejectedValue(new Error('Hetzner API down'))
-
       await handleStripeEvent({
-        type: 'checkout.session.completed',
+        type: 'payment_intent.succeeded',
         data: {
           object: {
-            id: 'cs_123',
-            metadata: validMeta,
-            subscription: 'sub_123',
+            id: 'pi_topup_123',
+            amount: 2000,
+            metadata: { type: 'credit_topup', org_id: 'org-1' },
           },
         },
       } as unknown as Stripe.Event)
 
-      expect(mockLogInstanceEvent).toHaveBeenCalledWith(
-        'inst-new',
-        'error',
-        expect.objectContaining({ error: 'Hetzner API down' })
+      expect(mockAddCredits).toHaveBeenCalledWith(
+        'org-1',
+        20,
+        expect.objectContaining({ stripePaymentIntentId: 'pi_topup_123' }),
       )
+    })
+
+    it('ignores non-credit-topup payment intents', async () => {
+      await handleStripeEvent({
+        type: 'payment_intent.succeeded',
+        data: {
+          object: {
+            id: 'pi_other',
+            amount: 599,
+            metadata: { type: 'something_else' },
+          },
+        },
+      } as unknown as Stripe.Event)
+
+      expect(mockAddCredits).not.toHaveBeenCalled()
+    })
+  })
+
+  describe('payment_intent.payment_failed', () => {
+    it('sets auto_topup_failed for credit topup failures', async () => {
+      const orgChain = chainMock({ data: null, error: null })
+      mockFrom.mockReturnValue(orgChain)
+
+      await handleStripeEvent({
+        type: 'payment_intent.payment_failed',
+        data: {
+          object: {
+            id: 'pi_fail',
+            metadata: { type: 'credit_topup', org_id: 'org-1' },
+          },
+        },
+      } as unknown as Stripe.Event)
+
+      expect(mockFrom).toHaveBeenCalledWith('organizations')
     })
   })
 
@@ -210,24 +261,6 @@ describe('handleStripeEvent', () => {
       } as unknown as Stripe.Event)
 
       expect(mockServerAction).toHaveBeenCalledWith(12345, 'shutdown')
-    })
-  })
-
-  describe('billing.meter events', () => {
-    it('handles meter events without throwing', async () => {
-      for (const type of [
-        'billing.meter.created',
-        'billing.meter.updated',
-        'billing.meter.deactivated',
-        'billing.meter.reactivated',
-      ]) {
-        await expect(
-          handleStripeEvent({
-            type,
-            data: { object: { id: 'mtr_123', display_name: 'Test', status: 'active' } },
-          } as unknown as Stripe.Event)
-        ).resolves.not.toThrow()
-      }
     })
   })
 

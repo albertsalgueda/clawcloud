@@ -3,6 +3,7 @@ import {
   uuid,
   text,
   integer,
+  boolean,
   timestamp,
   jsonb,
   numeric,
@@ -30,6 +31,10 @@ export const orgRoleEnum = pgEnum('org_role', [
   'owner', 'admin', 'member',
 ])
 
+export const creditTransactionTypeEnum = pgEnum('credit_transaction_type', [
+  'topup', 'usage', 'refund', 'manual_adjustment',
+])
+
 // Profiles (renamed from customers) — lightweight user record
 export const profiles = pgTable('profiles', {
   id: uuid('id').primaryKey().defaultRandom(),
@@ -50,6 +55,12 @@ export const organizations = pgTable('organizations', {
   stripe_customer_id: text('stripe_customer_id').unique(),
   plan: text('plan').notNull().default('starter'),
   max_instances: integer('max_instances').notNull().default(1),
+  credit_balance_eur: numeric('credit_balance_eur', { precision: 10, scale: 6 }).notNull().default('0'),
+  auto_topup_enabled: boolean('auto_topup_enabled').notNull().default(true),
+  auto_topup_amount_eur: numeric('auto_topup_amount_eur', { precision: 10, scale: 2 }).notNull().default('20'),
+  auto_topup_threshold_eur: numeric('auto_topup_threshold_eur', { precision: 10, scale: 2 }).notNull().default('2'),
+  credit_limit_eur: numeric('credit_limit_eur', { precision: 10, scale: 2 }),
+  auto_topup_failed: boolean('auto_topup_failed').notNull().default(false),
   created_at: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   updated_at: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
 }, (table) => [
@@ -88,6 +99,7 @@ export const instances = pgTable('instances', {
   dashboard_url: text('dashboard_url'),
   config: jsonb('config').notNull().default({}),
   env_vars: jsonb('env_vars').notNull().default({}),
+  config_version: integer('config_version').notNull().default(1),
   provisioned_at: timestamp('provisioned_at', { withTimezone: true }),
   last_health_check: timestamp('last_health_check', { withTimezone: true }),
   created_at: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
@@ -99,22 +111,24 @@ export const instances = pgTable('instances', {
   index('idx_instances_slug').on(table.slug),
 ])
 
-export const usageEvents = pgTable('usage_events', {
+// Credit transactions — tracks every balance change (topup, usage deduction, refund)
+export const creditTransactions = pgTable('credit_transactions', {
   id: uuid('id').primaryKey().defaultRandom(),
-  instance_id: uuid('instance_id').notNull().references(() => instances.id, { onDelete: 'cascade' }),
   org_id: uuid('org_id').notNull().references(() => organizations.id, { onDelete: 'cascade' }),
-  model: text('model').notNull(),
-  input_tokens: integer('input_tokens').notNull().default(0),
-  output_tokens: integer('output_tokens').notNull().default(0),
-  cost_usd: numeric('cost_usd', { precision: 10, scale: 6 }).notNull().default('0'),
-  billed_usd: numeric('billed_usd', { precision: 10, scale: 6 }).notNull().default('0'),
-  stripe_meter_event_id: text('stripe_meter_event_id'),
+  instance_id: uuid('instance_id').references(() => instances.id, { onDelete: 'cascade' }),
+  type: creditTransactionTypeEnum('type').notNull(),
+  amount_eur: numeric('amount_eur', { precision: 10, scale: 6 }).notNull(),
+  balance_after_eur: numeric('balance_after_eur', { precision: 10, scale: 6 }).notNull(),
+  model: text('model'),
+  input_tokens: integer('input_tokens'),
+  output_tokens: integer('output_tokens'),
+  stripe_payment_intent_id: text('stripe_payment_intent_id'),
+  description: text('description'),
   created_at: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
 }, (table) => [
-  index('idx_usage_org').on(table.org_id),
-  index('idx_usage_instance').on(table.instance_id),
-  index('idx_usage_created').on(table.created_at),
-  index('idx_usage_org_period').on(table.org_id, table.created_at),
+  index('idx_credit_txn_org_period').on(table.org_id, table.created_at),
+  index('idx_credit_txn_instance').on(table.instance_id),
+  index('idx_credit_txn_stripe_pi').on(table.stripe_payment_intent_id),
 ])
 
 export const instanceEvents = pgTable('instance_events', {
@@ -137,7 +151,7 @@ export const profilesRelations = relations(profiles, ({ many }) => ({
 export const organizationsRelations = relations(organizations, ({ many }) => ({
   members: many(orgMembers),
   instances: many(instances),
-  usageEvents: many(usageEvents),
+  creditTransactions: many(creditTransactions),
 }))
 
 export const orgMembersRelations = relations(orgMembers, ({ one }) => ({
@@ -161,17 +175,17 @@ export const instancesRelations = relations(instances, ({ one, many }) => ({
     references: [profiles.id],
   }),
   events: many(instanceEvents),
-  usageEvents: many(usageEvents),
+  creditTransactions: many(creditTransactions),
 }))
 
-export const usageEventsRelations = relations(usageEvents, ({ one }) => ({
-  instance: one(instances, {
-    fields: [usageEvents.instance_id],
-    references: [instances.id],
-  }),
+export const creditTransactionsRelations = relations(creditTransactions, ({ one }) => ({
   organization: one(organizations, {
-    fields: [usageEvents.org_id],
+    fields: [creditTransactions.org_id],
     references: [organizations.id],
+  }),
+  instance: one(instances, {
+    fields: [creditTransactions.instance_id],
+    references: [instances.id],
   }),
 }))
 

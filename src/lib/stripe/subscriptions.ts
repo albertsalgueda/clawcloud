@@ -19,7 +19,6 @@ export async function createInstanceCheckout(
     mode: 'subscription',
     line_items: [
       { price: params.priceId, quantity: 1 },
-      { price: process.env.STRIPE_PRICE_TOKEN_USAGE! },
     ],
     subscription_data: {
       metadata: params.metadata,

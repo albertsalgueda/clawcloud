@@ -18,13 +18,10 @@ export interface OpenClawConfig {
       baseUrl: string
       apiKey: string
       api: string
-      headers: Record<string, string>
       models: Array<{ id: string; name: string }>
     }>
   }
 }
-
-const AI_GATEWAY_BASE_URL = 'https://gateway.ai.vercel.app/v1'
 
 const DEFAULT_MODEL = 'anthropic/claude-sonnet-4-5'
 
@@ -39,27 +36,21 @@ const AVAILABLE_MODELS = [
 interface ConfigParams {
   gatewayToken: string
   dashboardUrl: string
-  aiGatewayApiKey: string
-  stripeRestrictedKey: string
+  proxyBaseUrl: string
 }
 
+/**
+ * Generate the OpenClaw configuration for a VPS instance.
+ *
+ * No secrets (AI gateway key, Stripe keys) are included — LLM requests
+ * go through the ClawCloud proxy which holds secrets server-side.
+ * The VPS authenticates to the proxy using its gateway_token.
+ */
 export function generateOpenClawConfig(
   _instance: Instance,
-  org: Organization,
+  _org: Organization,
   params: ConfigParams,
 ): OpenClawConfig {
-  if (!org.stripe_customer_id) {
-    throw new Error(
-      `Cannot generate OpenClaw config: org ${org.id} has no stripe_customer_id. ` +
-      'AI usage would be unmetered and unbilled.'
-    )
-  }
-
-  const billingHeaders = {
-    'stripe-customer-id': org.stripe_customer_id,
-    'stripe-restricted-access-key': params.stripeRestrictedKey,
-  }
-
   return {
     gateway: {
       auth: { mode: 'token', token: params.gatewayToken },
@@ -80,10 +71,9 @@ export function generateOpenClawConfig(
       mode: 'merge',
       providers: {
         'ai-gateway': {
-          baseUrl: AI_GATEWAY_BASE_URL,
-          apiKey: params.aiGatewayApiKey,
+          baseUrl: params.proxyBaseUrl,
+          apiKey: params.gatewayToken,
           api: 'openai-responses',
-          headers: billingHeaders,
           models: AVAILABLE_MODELS.map(m => ({ id: m.id, name: m.name })),
         },
       },
