@@ -13,16 +13,20 @@ interface SidebarStateContextValue {
 const SidebarStateContext = createContext<SidebarStateContextValue | null>(null)
 
 export function SidebarStateProvider({ children }: { children: React.ReactNode }) {
-  const [collapsed, setCollapsed] = useState(() => {
-    if (typeof window === 'undefined') {
-      return false
-    }
-    return window.localStorage.getItem(SIDEBAR_STORAGE_KEY) === 'true'
-  })
+  const [collapsed, setCollapsed] = useState(false)
+  const [hydrated, setHydrated] = useState(false)
 
   useEffect(() => {
-    window.localStorage.setItem(SIDEBAR_STORAGE_KEY, String(collapsed))
-  }, [collapsed])
+    const stored = window.localStorage.getItem(SIDEBAR_STORAGE_KEY)
+    if (stored === 'true') setCollapsed(true)
+    setHydrated(true)
+  }, [])
+
+  useEffect(() => {
+    if (hydrated) {
+      window.localStorage.setItem(SIDEBAR_STORAGE_KEY, String(collapsed))
+    }
+  }, [collapsed, hydrated])
 
   const value = useMemo<SidebarStateContextValue>(() => ({
     collapsed,
