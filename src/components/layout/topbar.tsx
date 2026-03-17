@@ -45,7 +45,7 @@ export function Topbar({ currentOrgSlug }: { currentOrgSlug: string }) {
       <div className="flex min-h-14 items-center gap-3">
         <div className="flex items-center gap-3 lg:hidden">
           <MobileNav currentOrgSlug={currentOrgSlug} />
-          <span className="font-medium">AC</span>
+          <span className="font-medium">Agent Computers</span>
         </div>
 
         <div className="hidden items-center gap-2 lg:flex">

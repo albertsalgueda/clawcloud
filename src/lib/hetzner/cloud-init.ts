@@ -80,7 +80,7 @@ After=network.target docker.service
 [Service]
 Type=simple
 User=openclaw
-ExecStart=/usr/bin/ttyd -p 7681 -W -t fontSize=14 -t theme={"background":"#0a0a0a","foreground":"#e0e0e0"} bash
+ExecStart=/snap/bin/ttyd -p 7681 -W -t fontSize=14 -t theme={"background":"#0a0a0a","foreground":"#e0e0e0"} bash
 Restart=always
 RestartSec=5
 
@@ -165,7 +165,7 @@ runcmd:
   - curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/debian.deb.txt' | tee /etc/apt/sources.list.d/caddy-stable.list
   - apt-get update
   - apt-get install -y caddy
-  - curl -sL https://github.com/nicholasgasior/gttyd/releases/download/1.7.2/ttyd.x86_64 -o /usr/bin/ttyd && chmod +x /usr/bin/ttyd || apt-get install -y ttyd || true
+  - snap install ttyd --classic
   - chown -R openclaw:openclaw /opt/openclaw
   - chown -R 1000:1000 /opt/openclaw/config
   - systemctl enable caddy && systemctl start caddy
