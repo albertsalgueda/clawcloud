@@ -29,7 +29,6 @@ export default function BillingPage() {
       <div className="grid gap-4 sm:grid-cols-2">
         <CurrentSpend
           baseCost={usage?.base_cost ?? 0}
-          tokenCost={usage?.token_cost ?? 0}
           totalCost={usage?.total_cost ?? 0}
           creditBalance={credits?.credit_balance_eur}
           autoTopupFailed={credits?.auto_topup_failed}

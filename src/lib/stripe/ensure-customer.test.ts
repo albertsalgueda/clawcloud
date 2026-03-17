@@ -51,6 +51,7 @@ describe('ensureStripeCustomer', () => {
 
   it('returns existing stripe_customer_id if valid in current mode', async () => {
     const org = makeOrg({ stripe_customer_id: 'cus_existing' })
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     vi.mocked(stripe.customers.retrieve).mockResolvedValue({ id: 'cus_existing' } as any)
     const result = await ensureStripeCustomer(org)
 
@@ -62,10 +63,12 @@ describe('ensureStripeCustomer', () => {
   it('creates new customer if existing ID is from wrong Stripe mode', async () => {
     const org = makeOrg({ stripe_customer_id: 'cus_live_mode_id' })
     vi.mocked(stripe.customers.retrieve).mockRejectedValue(new Error('No such customer'))
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     vi.mocked(stripe.customers.create).mockResolvedValue({ id: 'cus_test_new' } as any)
 
     const mockEq = vi.fn().mockResolvedValue({ data: null, error: null })
     const mockUpdate = vi.fn(() => ({ eq: mockEq }))
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     vi.mocked(supabaseAdmin.from).mockReturnValue({ update: mockUpdate } as any)
 
     const result = await ensureStripeCustomer(org)
@@ -76,10 +79,12 @@ describe('ensureStripeCustomer', () => {
 
   it('creates a Stripe customer when none exists', async () => {
     const org = makeOrg({ stripe_customer_id: null })
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     vi.mocked(stripe.customers.create).mockResolvedValue({ id: 'cus_new123' } as any)
 
     const mockEq = vi.fn().mockResolvedValue({ data: null, error: null })
     const mockUpdate = vi.fn(() => ({ eq: mockEq }))
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     vi.mocked(supabaseAdmin.from).mockReturnValue({ update: mockUpdate } as any)
 
     const result = await ensureStripeCustomer(org)

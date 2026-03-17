@@ -4,7 +4,6 @@ import { AlertTriangle } from 'lucide-react'
 
 interface CurrentSpendProps {
   baseCost: number
-  tokenCost: number
   totalCost: number
   creditBalance?: number
   autoTopupFailed?: boolean
@@ -12,7 +11,6 @@ interface CurrentSpendProps {
 
 export function CurrentSpend({
   baseCost,
-  tokenCost,
   totalCost,
   creditBalance,
   autoTopupFailed,
