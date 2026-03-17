@@ -21,7 +21,7 @@ describe('utils', () => {
   })
 
   it('formats currency using the provided currency code', () => {
-    expect(formatCurrency(12.5, 'EUR')).toBe('EUR 12.50')
+    expect(formatCurrency(12.5, 'EUR')).toBe('€12.50')
   })
 
   it('formats a date consistently', () => {

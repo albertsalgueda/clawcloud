@@ -65,6 +65,26 @@ describe('cloudflare dns helpers', () => {
     })
   })
 
+  it('falls back to the default instance domain when none is configured', async () => {
+    process.env.CLOUDFLARE_API_TOKEN = 'token'
+    process.env.CLOUDFLARE_ZONE_ID = 'zone'
+
+    mockFetch.mockResolvedValue({
+      json: vi.fn().mockResolvedValue({
+        success: true,
+        result: { id: 'record-123' },
+      }),
+    })
+
+    await createDnsRecord('demo', '1.2.3.4')
+
+    expect(JSON.parse(mockFetch.mock.calls[0][1].body as string)).toEqual(
+      expect.objectContaining({
+        name: 'demo.clawcloud.dev',
+      })
+    )
+  })
+
   it('skips delete when configuration is missing', async () => {
     await deleteDnsRecord('record-123')
 

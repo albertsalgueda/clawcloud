@@ -1,6 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-const mockStripeConstructor = vi.fn()
+let stripeInstance: Record<string, unknown> | null = null
+
+const mockStripeConstructor = vi.fn(function StripeMock() {
+  return stripeInstance
+})
 
 vi.mock('stripe', () => ({
   default: mockStripeConstructor,
@@ -25,17 +29,16 @@ describe('stripe client proxy', () => {
   it('lazily constructs Stripe once and reuses the same instance', async () => {
     process.env.STRIPE_SECRET_KEY = 'sk_test_123'
 
-    const fakeStripe = {
+    stripeInstance = {
       customers: { create: vi.fn() },
       subscriptions: { retrieve: vi.fn() },
     }
-    mockStripeConstructor.mockImplementation(() => fakeStripe)
 
     const { stripe } = await import('./client')
 
     expect(mockStripeConstructor).not.toHaveBeenCalled()
-    expect(stripe.customers).toBe(fakeStripe.customers)
-    expect(stripe.subscriptions).toBe(fakeStripe.subscriptions)
+    expect(stripe.customers).toBe(stripeInstance.customers)
+    expect(stripe.subscriptions).toBe(stripeInstance.subscriptions)
     expect(mockStripeConstructor).toHaveBeenCalledTimes(1)
     expect(mockStripeConstructor).toHaveBeenCalledWith('sk_test_123', { typescript: true })
   })

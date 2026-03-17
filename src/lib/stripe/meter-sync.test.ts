@@ -63,6 +63,21 @@ function chainMock(returnValue: unknown) {
 describe('syncMeterUsage', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    process.env.STRIPE_METER_ID = 'mtr_test123'
+  })
+
+  it('returns synced: 0 when the meter id is missing', async () => {
+    vi.spyOn(console, 'warn').mockImplementation(() => {})
+    delete process.env.STRIPE_METER_ID
+
+    await expect(
+      syncMeterUsage(
+        'org-1', 'cus_123',
+        new Date('2026-03-01'), new Date('2026-03-31')
+      )
+    ).resolves.toEqual({ synced: 0 })
+
+    expect(console.warn).toHaveBeenCalledWith('STRIPE_METER_ID not set, skipping meter sync')
   })
 
   it('returns synced: 0 when start >= end', async () => {
@@ -117,5 +132,44 @@ describe('syncMeterUsage', () => {
 
     expect(mockListEventSummaries).toHaveBeenCalledTimes(2)
     expect(result.synced).toBe(1)
+  })
+
+  it('updates an existing usage event when the meter record already exists', async () => {
+    mockListEventSummaries.mockResolvedValue({
+      data: [{ id: 's1', aggregated_value: 1000, start_time: 1709251200, end_time: 1709337600 }],
+      has_more: false,
+    })
+
+    mockSupabaseFrom.mockReturnValue(
+      chainMock({ data: { id: 'inst-1' }, error: null })
+    )
+
+    mockDbSelect.mockReturnValue({
+      from: vi.fn(() => ({
+        where: vi.fn(() => ({
+          limit: vi.fn(() => Promise.resolve([{ id: 'existing' }])),
+        })),
+      })),
+    })
+
+    const mockWhere = vi.fn(() => Promise.resolve())
+    const mockSet = vi.fn(() => ({ where: mockWhere }))
+    mockDbUpdate.mockReturnValue({
+      set: mockSet,
+    })
+
+    const result = await syncMeterUsage(
+      'org-1', 'cus_123',
+      new Date('2026-03-01'), new Date('2026-03-31')
+    )
+
+    expect(result).toEqual({ synced: 1 })
+    expect(mockDbUpdate).toHaveBeenCalled()
+    expect(mockSet).toHaveBeenCalledWith({
+      input_tokens: 800,
+      output_tokens: 200,
+      cost_usd: '0.003',
+      billed_usd: '0.003',
+    })
   })
 })

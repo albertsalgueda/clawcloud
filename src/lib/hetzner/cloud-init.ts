@@ -146,12 +146,15 @@ runcmd:
   # ttyd
   - snap install ttyd --classic
 
-  # Fix home directory ownership before installs
+  # Fix home directory ownership before installs (write_files runs as root)
   - mkdir -p /home/openclaw/.npm /home/openclaw/workspace
   - chown -R openclaw:openclaw /home/openclaw
 
   # OpenClaw (native install as openclaw user)
   - su - openclaw -c 'curl -fsSL https://openclaw.ai/install.sh | bash'
+
+  # Add npm-global bin to openclaw PATH for interactive/login sessions
+  - su - openclaw -c 'echo "export PATH=\\$HOME/.npm-global/bin:\\$PATH" >> ~/.profile'
 
   # Playwright browsers for agent browser automation
   - su - openclaw -c 'npx playwright install --with-deps chromium'

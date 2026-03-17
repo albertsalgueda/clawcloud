@@ -3,6 +3,7 @@ import type { Instance } from '@/types/instance'
 
 export interface OpenClawConfig {
   gateway: {
+    mode: string
     auth: { mode: string; token: string }
     controlUi: { allowedOrigins: string[] }
     bind: string
@@ -62,6 +63,7 @@ export function generateOpenClawConfig(
 
   return {
     gateway: {
+      mode: 'local',
       auth: { mode: 'token', token: params.gatewayToken },
       controlUi: {
         allowedOrigins: [params.dashboardUrl],
