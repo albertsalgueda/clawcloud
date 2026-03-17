@@ -16,52 +16,6 @@ function b64(text: string): string {
   return Buffer.from(text).toString('base64')
 }
 
-function buildDockerCompose(params: CloudInitParams): string {
-  const hostname = `${params.slug}.${params.domain}`
-  return `services:
-  openclaw:
-    image: ghcr.io/openclaw/openclaw:${params.openclawVersion}
-    container_name: openclaw
-    restart: always
-    env_file: .env
-    volumes:
-      - ./config:/home/node/.openclaw
-      - workspace:/home/node/workspace
-    ports:
-      - "18789:18789"
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:18789/healthz"]
-      interval: 15s
-      timeout: 5s
-      retries: 5
-      start_period: 30s
-
-  clawport:
-    image: node:22-slim
-    container_name: clawport
-    restart: always
-    working_dir: /app
-    environment:
-      - WORKSPACE_PATH=/workspace
-      - OPENCLAW_GATEWAY_URL=http://openclaw:18789
-      - OPENCLAW_GATEWAY_TOKEN=${params.gatewayToken}
-      - NEXT_PUBLIC_OPENCLAW_GATEWAY_URL=wss://${hostname}/gateway
-      - PORT=3000
-      - NODE_ENV=production
-    volumes:
-      - workspace:/workspace:ro
-    ports:
-      - "3000:3000"
-    depends_on:
-      openclaw:
-        condition: service_healthy
-    command: sh -c "npm install -g clawport-ui && clawport start"
-
-volumes:
-  workspace:
-`
-}
-
 function buildEnvFile(params: CloudInitParams): string {
   return `AI_GATEWAY_URL=https://gateway.ai.vercel.app/v1
 AI_GATEWAY_API_KEY=${params.aiGatewayApiKey}
@@ -69,23 +23,6 @@ STRIPE_CUSTOMER_ID=${params.stripeCustomerId}
 STRIPE_RESTRICTED_KEY=${params.stripeRestrictedKey}
 INSTANCE_ID=${params.instanceId}
 CUSTOMER_ID=${params.customerId}
-`
-}
-
-function buildTtydService(): string {
-  return `[Unit]
-Description=ttyd web terminal
-After=network.target docker.service
-
-[Service]
-Type=simple
-User=openclaw
-ExecStart=/snap/bin/ttyd -p 7681 -W -t fontSize=14 -t theme={"background":"#0a0a0a","foreground":"#e0e0e0"} bash
-Restart=always
-RestartSec=5
-
-[Install]
-WantedBy=multi-user.target
 `
 }
 
@@ -103,7 +40,7 @@ function buildCaddyfile(hostname: string): string {
         reverse_proxy localhost:7681
     }
     handle {
-        reverse_proxy localhost:3000
+        reverse_proxy localhost:18789
     }
     header {
         X-Frame-Options ""
@@ -113,44 +50,75 @@ function buildCaddyfile(hostname: string): string {
 `
 }
 
+function buildTtydService(): string {
+  return `[Unit]
+Description=ttyd web terminal
+After=network.target
+
+[Service]
+Type=simple
+User=openclaw
+ExecStart=/snap/bin/ttyd -p 7681 -W -t fontSize=14 -t theme={"background":"#0a0a0a","foreground":"#e0e0e0"} bash
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
+`
+}
+
+function buildGatewayService(): string {
+  return `[Unit]
+Description=OpenClaw Gateway
+After=network.target
+
+[Service]
+Type=simple
+User=openclaw
+WorkingDirectory=/home/openclaw
+ExecStart=/home/openclaw/.npm-global/bin/openclaw gateway run
+Restart=always
+RestartSec=5
+Environment=HOME=/home/openclaw
+Environment=PATH=/home/openclaw/.npm-global/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+
+[Install]
+WantedBy=multi-user.target
+`
+}
+
 export function generateCloudInit(params: CloudInitParams): string {
   const hostname = `${params.slug}.${params.domain}`
 
   const envFile = b64(buildEnvFile(params))
   const configFile = b64(params.openclawConfig)
-  const composeFile = b64(buildDockerCompose(params))
   const caddyFile = b64(buildCaddyfile(hostname))
   const ttydService = b64(buildTtydService())
+  const gatewayService = b64(buildGatewayService())
 
   return `#cloud-config
 package_update: true
 packages:
-  - docker.io
-  - docker-compose-v2
   - curl
   - jq
 
 users:
   - name: openclaw
     shell: /bin/bash
-    groups: docker,sudo
+    groups: sudo
     sudo: ALL=(ALL) NOPASSWD:ALL
     ssh_authorized_keys:
       - ${params.sshPublicKey ?? ''}
 
 write_files:
-  - path: /opt/openclaw/.env
+  - path: /home/openclaw/.env
     permissions: '0600'
     encoding: b64
     content: ${envFile}
-  - path: /opt/openclaw/config/openclaw.json
+  - path: /home/openclaw/.openclaw/openclaw.json
     permissions: '0644'
     encoding: b64
     content: ${configFile}
-  - path: /opt/openclaw/docker-compose.yml
-    permissions: '0644'
-    encoding: b64
-    content: ${composeFile}
   - path: /etc/caddy/Caddyfile
     permissions: '0644'
     encoding: b64
@@ -159,19 +127,39 @@ write_files:
     permissions: '0644'
     encoding: b64
     content: ${ttydService}
+  - path: /etc/systemd/system/openclaw-gateway.service
+    permissions: '0644'
+    encoding: b64
+    content: ${gatewayService}
 
 runcmd:
+  # Node.js 22 via NodeSource
+  - curl -fsSL https://deb.nodesource.com/setup_22.x | bash -
+  - apt-get install -y nodejs
+
+  # Caddy (non-interactive to avoid Caddyfile conflict prompt)
   - curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/gpg.key' | gpg --dearmor -o /usr/share/keyrings/caddy-stable-archive-keyring.gpg
   - curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/debian.deb.txt' | tee /etc/apt/sources.list.d/caddy-stable.list
   - apt-get update
-  - apt-get install -y caddy
+  - DEBIAN_FRONTEND=noninteractive apt-get install -y -o Dpkg::Options::='--force-confnew' caddy
+
+  # ttyd
   - snap install ttyd --classic
-  - chown -R openclaw:openclaw /opt/openclaw
-  - chown -R 1000:1000 /opt/openclaw/config
+
+  # Fix home directory ownership before installs
+  - mkdir -p /home/openclaw/.npm /home/openclaw/workspace
+  - chown -R openclaw:openclaw /home/openclaw
+
+  # OpenClaw (native install as openclaw user)
+  - su - openclaw -c 'curl -fsSL https://openclaw.ai/install.sh | bash'
+
+  # Playwright browsers for agent browser automation
+  - su - openclaw -c 'npx playwright install --with-deps chromium'
+
+  # Start all services
+  - systemctl daemon-reload
   - systemctl enable caddy && systemctl start caddy
-  - systemctl enable docker && systemctl start docker
   - systemctl enable ttyd && systemctl start ttyd
-  - cd /opt/openclaw && docker compose pull
-  - cd /opt/openclaw && docker compose up -d
+  - systemctl enable openclaw-gateway && systemctl start openclaw-gateway
 `
 }

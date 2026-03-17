@@ -12,7 +12,7 @@ export default function InstanceLogsPage() {
       </CardHeader>
       <CardContent>
         <p className="text-sm text-muted-foreground">
-          Log streaming is available in the ClawPort dashboard. Click &quot;Open Dashboard&quot; from the Overview tab to access live logs.
+          Log streaming is available in the OpenClaw dashboard. Click &quot;Open Dashboard&quot; from the Overview tab to access live logs.
         </p>
       </CardContent>
     </Card>

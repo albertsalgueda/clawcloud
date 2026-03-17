@@ -1,15 +1,9 @@
 'use client'
 
-import { useState } from 'react'
 import { ExternalLink } from 'lucide-react'
-import { cn } from '@/lib/utils'
 import type { Instance } from '@/types/instance'
 
-type DashboardView = 'clawport' | 'control-ui'
-
 export function InstanceDashboard({ instance }: { instance: Instance }) {
-  const [view, setView] = useState<DashboardView>('clawport')
-
   if (instance.status !== 'running' || !instance.ip_address) {
     return (
       <div className="flex flex-col items-center justify-center rounded-2xl border border-border bg-card p-12 text-center">
@@ -22,39 +16,15 @@ export function InstanceDashboard({ instance }: { instance: Instance }) {
     )
   }
 
-  const clawportUrl = `http://${instance.ip_address}:3000`
-  const controlUiUrl = `http://${instance.ip_address}:18789`
-  const currentUrl = view === 'clawport' ? clawportUrl : controlUiUrl
+  const dashboardUrl = instance.dashboard_url
+    ? `${instance.dashboard_url}/gateway`
+    : `http://${instance.ip_address}:18789`
 
   return (
     <div className="space-y-3">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-1 rounded-lg border border-border bg-card p-0.5">
-          <button
-            onClick={() => setView('clawport')}
-            className={cn(
-              'rounded-md px-3 py-1 text-xs font-medium transition-colors',
-              view === 'clawport'
-                ? 'bg-primary text-primary-foreground'
-                : 'text-muted-foreground hover:text-foreground'
-            )}
-          >
-            ClawPort
-          </button>
-          <button
-            onClick={() => setView('control-ui')}
-            className={cn(
-              'rounded-md px-3 py-1 text-xs font-medium transition-colors',
-              view === 'control-ui'
-                ? 'bg-primary text-primary-foreground'
-                : 'text-muted-foreground hover:text-foreground'
-            )}
-          >
-            OpenClaw Control UI
-          </button>
-        </div>
+      <div className="flex items-center justify-end">
         <a
-          href={currentUrl}
+          href={dashboardUrl}
           target="_blank"
           rel="noopener noreferrer"
           className="inline-flex items-center gap-1.5 rounded-md border border-border bg-background px-3 py-1.5 text-xs font-medium transition-colors hover:bg-accent"
@@ -65,10 +35,9 @@ export function InstanceDashboard({ instance }: { instance: Instance }) {
       </div>
       <div className="overflow-hidden rounded-xl border border-border">
         <iframe
-          key={view}
-          src={currentUrl}
+          src={dashboardUrl}
           className="h-[calc(100vh-220px)] w-full"
-          title={view === 'clawport' ? 'ClawPort Dashboard' : 'OpenClaw Control UI'}
+          title="OpenClaw Control UI"
           allow="clipboard-read; clipboard-write"
         />
       </div>

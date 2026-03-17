@@ -56,7 +56,7 @@ export function InstanceOverview({ instance: initialInstance }: { instance: Inst
               Provisioning in progress...
             </p>
             <p className="text-xs text-muted-foreground mt-1">
-              Your server is being set up with OpenClaw and ClawPort. This usually takes 3-5 minutes.
+              Your server is being set up with OpenClaw. This usually takes 3-5 minutes.
               The dashboard will be available once provisioning completes.
             </p>
           </CardContent>

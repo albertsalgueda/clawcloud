@@ -17,15 +17,10 @@ async function probe(url: string): Promise<{ ok: boolean; latency: number; body?
 }
 
 export async function checkInstanceHealth(ip: string): Promise<HealthStatus> {
-  const clawport = await probe(`http://${ip}:3000/health`)
-  if (clawport.ok) {
-    return { status: 'healthy', latency_ms: clawport.latency, details: { ...clawport.body, service: 'clawport' } }
-  }
-
   const gateway = await probe(`http://${ip}:18789/healthz`)
   if (gateway.ok) {
-    return { status: 'unhealthy', latency_ms: gateway.latency, details: { ...gateway.body, service: 'openclaw-gateway', note: 'Gateway up, ClawPort not ready' } }
+    return { status: 'healthy', latency_ms: gateway.latency, details: { ...gateway.body, service: 'openclaw-gateway' } }
   }
 
-  return { status: 'unreachable', latency_ms: clawport.latency + gateway.latency }
+  return { status: 'unreachable', latency_ms: gateway.latency }
 }
