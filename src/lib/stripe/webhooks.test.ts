@@ -47,7 +47,9 @@ vi.mock('@/lib/constants', () => ({
 
 import { handleStripeEvent } from './webhooks'
 
-function chainMock(returnValue: unknown) {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function chainMock(returnValue: unknown): Record<string, any> {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const chain: Record<string, any> = {}
   const terminal = () => Promise.resolve(returnValue)
   const methods = ['from', 'select', 'update', 'insert', 'eq', 'in', 'single', 'order', 'limit']
@@ -181,7 +183,7 @@ describe('handleStripeEvent', () => {
   describe('payment_intent.succeeded', () => {
     it('adds credits for credit_topup payment intents', async () => {
       const txnChain = chainMock({ data: [], error: null })
-      txnChain.single = undefined as any
+      txnChain.single = undefined as unknown
       txnChain.limit = vi.fn(() => Promise.resolve({ data: [], error: null }))
       const orgChain = chainMock({ data: null, error: null })
 
