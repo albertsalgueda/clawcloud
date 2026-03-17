@@ -198,7 +198,7 @@ async function handlePaymentIntentFailed(pi: Stripe.PaymentIntent): Promise<void
     .eq('id', orgId)
 }
 
-async function handleSubscriptionCreated(_sub: Stripe.Subscription): Promise<void> {
+async function handleSubscriptionCreated(_sub: Stripe.Subscription): Promise<void> { // eslint-disable-line @typescript-eslint/no-unused-vars
   // Instance creation is handled in handleCheckoutCompleted.
 }
 
