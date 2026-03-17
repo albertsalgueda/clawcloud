@@ -21,6 +21,12 @@ export interface Organization {
   stripe_customer_id: string | null
   plan: string
   max_instances: number
+  credit_balance_eur: string
+  auto_topup_enabled: boolean
+  auto_topup_amount_eur: string
+  auto_topup_threshold_eur: string
+  credit_limit_eur: string | null
+  auto_topup_failed: boolean
   created_at: string
   updated_at: string
 }

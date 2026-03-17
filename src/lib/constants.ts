@@ -44,3 +44,21 @@ export const PLAN_PRICES: Record<PlanKey, string> = {
   get pro() { return process.env.STRIPE_PRICE_PRO ?? '' },
   get business() { return process.env.STRIPE_PRICE_BUSINESS ?? '' },
 }
+
+// Prepaid credit system defaults
+export const CREDIT_DEFAULTS = {
+  INITIAL_CREDIT_EUR: 5,
+  AUTO_TOPUP_AMOUNT_EUR: 20,
+  AUTO_TOPUP_THRESHOLD_EUR: 2,
+} as const
+
+// Per-token pricing in EUR (price per single token, not per 1K)
+export const TOKEN_PRICING_EUR: Record<string, { input: number; output: number }> = {
+  'anthropic/claude-sonnet-4-5':  { input: 0.000003,  output: 0.000015 },
+  'anthropic/claude-opus-4-6':    { input: 0.000015,  output: 0.000075 },
+  'openai/gpt-4o':                { input: 0.0000025, output: 0.00001  },
+  'openai/o3-mini':               { input: 0.0000011, output: 0.0000044 },
+  'google/gemini-2.5-pro':        { input: 0.00000125,output: 0.000005 },
+}
+
+export const DEFAULT_TOKEN_PRICE_EUR = { input: 0.000003, output: 0.000015 }

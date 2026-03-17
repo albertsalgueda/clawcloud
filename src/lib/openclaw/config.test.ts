@@ -11,6 +11,12 @@ function makeOrg(overrides: Partial<Organization> = {}): Organization {
     stripe_customer_id: 'cus_test123',
     plan: 'starter',
     max_instances: 50,
+    credit_balance_eur: '0',
+    auto_topup_enabled: true,
+    auto_topup_amount_eur: '20',
+    auto_topup_threshold_eur: '2',
+    credit_limit_eur: null,
+    auto_topup_failed: false,
     created_at: '2026-01-01T00:00:00Z',
     updated_at: '2026-01-01T00:00:00Z',
     ...overrides,
@@ -36,6 +42,7 @@ function makeInstance(overrides: Partial<Instance> = {}): Instance {
     dashboard_url: null,
     config: {},
     env_vars: {},
+    config_version: 2,
     provisioned_at: null,
     last_health_check: null,
     created_at: '2026-01-01T00:00:00Z',
@@ -47,28 +54,12 @@ function makeInstance(overrides: Partial<Instance> = {}): Instance {
 const defaultParams = {
   gatewayToken: 'gateway-token-xyz',
   dashboardUrl: 'https://my-instance.agentcomputers.app',
-  aiGatewayApiKey: 'vck_test_key',
-  stripeRestrictedKey: 'rk_test_key',
+  proxyBaseUrl: 'https://clawcloud.dev/api/gateway/proxy',
 }
 
 describe('generateOpenClawConfig', () => {
-  it('throws if org has no stripe_customer_id', () => {
-    const org = makeOrg({ stripe_customer_id: null })
-    expect(() =>
-      generateOpenClawConfig(makeInstance(), org, defaultParams)
-    ).toThrow('has no stripe_customer_id')
-  })
-
-  it('throws if stripe_customer_id is empty string', () => {
-    const org = makeOrg({ stripe_customer_id: '' as unknown as null })
-    expect(() =>
-      generateOpenClawConfig(makeInstance(), org, defaultParams)
-    ).toThrow('has no stripe_customer_id')
-  })
-
   it('generates valid OpenClaw config with correct gateway auth', () => {
-    const org = makeOrg({ stripe_customer_id: 'cus_abc123' })
-    const config = generateOpenClawConfig(makeInstance(), org, defaultParams)
+    const config = generateOpenClawConfig(makeInstance(), makeOrg(), defaultParams)
 
     expect(config.gateway.auth.mode).toBe('token')
     expect(config.gateway.auth.token).toBe('gateway-token-xyz')
@@ -83,19 +74,40 @@ describe('generateOpenClawConfig', () => {
     expect(config.agents.defaults.model.fallbacks).not.toContain(config.agents.defaults.model.primary)
   })
 
-  it('configures AI Gateway provider with billing headers', () => {
-    const org = makeOrg({ stripe_customer_id: 'cus_abc123' })
-    const config = generateOpenClawConfig(makeInstance(), org, defaultParams)
+  it('uses proxy URL instead of direct AI gateway URL', () => {
+    const config = generateOpenClawConfig(makeInstance(), makeOrg(), defaultParams)
 
-    expect(config.models.mode).toBe('merge')
     const provider = config.models.providers['ai-gateway']
     expect(provider).toBeDefined()
-    expect(provider.baseUrl).toBe('https://gateway.ai.vercel.app/v1')
-    expect(provider.apiKey).toBe('vck_test_key')
+    expect(provider.baseUrl).toBe('https://clawcloud.dev/api/gateway/proxy')
     expect(provider.api).toBe('openai-responses')
-    expect(provider.headers['stripe-customer-id']).toBe('cus_abc123')
-    expect(provider.headers['stripe-restricted-access-key']).toBe('rk_test_key')
     expect(provider.models.length).toBeGreaterThanOrEqual(5)
-    expect(provider.models.map(m => m.id)).toContain('openai/gpt-4o')
+  })
+
+  it('uses gateway token as API key (no secrets in config)', () => {
+    const config = generateOpenClawConfig(makeInstance(), makeOrg(), defaultParams)
+
+    const provider = config.models.providers['ai-gateway']
+    expect(provider.apiKey).toBe('gateway-token-xyz')
+  })
+
+  it('does not include any billing headers or secrets', () => {
+    const config = generateOpenClawConfig(makeInstance(), makeOrg(), defaultParams)
+
+    const provider = config.models.providers['ai-gateway']
+    const configStr = JSON.stringify(config)
+
+    // No Stripe keys or billing headers
+    expect(configStr).not.toContain('stripe')
+    expect(configStr).not.toContain('rk_test')
+    expect(configStr).not.toContain('restricted')
+    expect((provider as unknown as Record<string, unknown>).headers).toBeUndefined()
+  })
+
+  it('works without stripe_customer_id (no longer required)', () => {
+    const org = makeOrg({ stripe_customer_id: null })
+    expect(() =>
+      generateOpenClawConfig(makeInstance(), org, defaultParams)
+    ).not.toThrow()
   })
 })
