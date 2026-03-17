@@ -1,6 +1,6 @@
 'use client'
 
-import { ExternalLink, Maximize2 } from 'lucide-react'
+import { ExternalLink } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import type { Instance } from '@/types/instance'
 
@@ -29,14 +29,12 @@ export function InstanceDashboard({ instance }: { instance: Instance }) {
           ClawPort Agent Dashboard
         </p>
         <div className="flex gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            render={<a href={iframeSrc} target="_blank" rel="noopener noreferrer" />}
-          >
-            <ExternalLink className="mr-1.5 h-3.5 w-3.5" />
-            Open in new tab
-          </Button>
+          <a href={iframeSrc} target="_blank" rel="noopener noreferrer">
+            <Button variant="outline" size="sm" nativeButton={false}>
+              <ExternalLink className="mr-1.5 h-3.5 w-3.5" />
+              Open in new tab
+            </Button>
+          </a>
         </div>
       </div>
       <div className="overflow-hidden rounded-xl border border-border">
