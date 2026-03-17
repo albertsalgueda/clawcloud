@@ -2,13 +2,12 @@
 
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
-import { Button } from '@/components/ui/button'
 import { InstanceStatusBadge } from './instance-status'
 import { InstanceActions } from './instance-actions'
 import { PLANS, REGIONS } from '@/lib/constants'
 import { formatDate } from '@/lib/utils'
 import { usePolling } from '@/hooks/use-polling'
-import { Copy, Globe, Cpu, MemoryStick, Clock, ExternalLink } from 'lucide-react'
+import { Copy, Globe, Cpu, MemoryStick, Clock } from 'lucide-react'
 import { toast } from 'sonner'
 import type { Instance } from '@/types/instance'
 import type { HealthStatus } from '@/lib/openclaw/health'
@@ -38,9 +37,6 @@ export function InstanceOverview({ instance: initialInstance }: { instance: Inst
     }
   }
 
-  const dashboardUrl = instance.dashboard_url
-    ?? (instance.ip_address ? `http://${instance.ip_address}:3000` : null)
-
   return (
     <div className="space-y-6">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
@@ -49,37 +45,9 @@ export function InstanceOverview({ instance: initialInstance }: { instance: Inst
           <p className="text-sm text-muted-foreground font-mono">{instance.slug}</p>
         </div>
         <div className="flex items-center gap-2">
-          {instance.status === 'running' && dashboardUrl && (
-            <Button
-              render={<a href={dashboardUrl} target="_blank" rel="noopener noreferrer" />}
-            >
-              <ExternalLink className="mr-2 h-4 w-4" />
-              Open Dashboard
-            </Button>
-          )}
           <InstanceActions instance={instance} />
         </div>
       </div>
-
-      {instance.status === 'running' && dashboardUrl && (
-        <Card className="border-primary/20 bg-primary/5">
-          <CardContent className="flex items-center justify-between py-4">
-            <div className="space-y-0.5">
-              <p className="text-sm font-medium">Agent Dashboard</p>
-              <p className="text-xs text-muted-foreground">
-                Chat with your agent, manage tasks, view logs, and track costs
-              </p>
-            </div>
-            <Button
-              size="sm"
-              render={<a href={dashboardUrl} target="_blank" rel="noopener noreferrer" />}
-            >
-              <ExternalLink className="mr-2 h-4 w-4" />
-              Open ClawPort
-            </Button>
-          </CardContent>
-        </Card>
-      )}
 
       {instance.status === 'provisioning' && (
         <Card className="border-yellow-500/20 bg-yellow-500/5">

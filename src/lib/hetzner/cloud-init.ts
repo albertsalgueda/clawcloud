@@ -17,6 +17,7 @@ function b64(text: string): string {
 }
 
 function buildDockerCompose(params: CloudInitParams): string {
+  const hostname = `${params.slug}.${params.domain}`
   return `services:
   openclaw:
     image: ghcr.io/openclaw/openclaw:${params.openclawVersion}
@@ -44,6 +45,7 @@ function buildDockerCompose(params: CloudInitParams): string {
       - WORKSPACE_PATH=/workspace
       - OPENCLAW_GATEWAY_URL=http://openclaw:18789
       - OPENCLAW_GATEWAY_TOKEN=${params.gatewayToken}
+      - NEXT_PUBLIC_OPENCLAW_GATEWAY_URL=wss://${hostname}/gateway
       - PORT=3000
       - NODE_ENV=production
     volumes:
@@ -72,7 +74,17 @@ CUSTOMER_ID=${params.customerId}
 
 function buildCaddyfile(hostname: string): string {
   return `${hostname} {
-    reverse_proxy localhost:3000
+    handle /gateway/* {
+        uri strip_prefix /gateway
+        reverse_proxy localhost:18789
+    }
+    handle {
+        reverse_proxy localhost:3000
+    }
+    header {
+        X-Frame-Options ""
+        Content-Security-Policy ""
+    }
 }
 `
 }

@@ -6,6 +6,8 @@ import { cn } from '@/lib/utils'
 
 const tabs = [
   { label: 'Overview', href: '' },
+  { label: 'Dashboard', href: '/dashboard' },
+  { label: 'Terminal', href: '/terminal' },
   { label: 'Settings', href: '/settings' },
   { label: 'Usage', href: '/usage' },
 ]
