@@ -57,14 +57,6 @@ function buildDockerCompose(params: CloudInitParams): string {
         condition: service_healthy
     command: sh -c "npm install -g clawport-ui && clawport start"
 
-  ttyd:
-    image: tsl0922/ttyd:latest
-    container_name: ttyd
-    restart: always
-    command: ttyd -p 7681 -W -t fontSize=14 -t theme={"background":"#0a0a0a"} bash
-    ports:
-      - "7681:7681"
-
 volumes:
   workspace:
 `
@@ -77,6 +69,23 @@ STRIPE_CUSTOMER_ID=${params.stripeCustomerId}
 STRIPE_RESTRICTED_KEY=${params.stripeRestrictedKey}
 INSTANCE_ID=${params.instanceId}
 CUSTOMER_ID=${params.customerId}
+`
+}
+
+function buildTtydService(): string {
+  return `[Unit]
+Description=ttyd web terminal
+After=network.target docker.service
+
+[Service]
+Type=simple
+User=openclaw
+ExecStart=/usr/bin/ttyd -p 7681 -W -t fontSize=14 -t theme={"background":"#0a0a0a","foreground":"#e0e0e0"} bash
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
 `
 }
 
@@ -111,6 +120,7 @@ export function generateCloudInit(params: CloudInitParams): string {
   const configFile = b64(params.openclawConfig)
   const composeFile = b64(buildDockerCompose(params))
   const caddyFile = b64(buildCaddyfile(hostname))
+  const ttydService = b64(buildTtydService())
 
   return `#cloud-config
 package_update: true
@@ -123,9 +133,10 @@ packages:
 users:
   - name: openclaw
     shell: /bin/bash
-    groups: docker
+    groups: docker,sudo
     sudo: ALL=(ALL) NOPASSWD:ALL
-${params.sshPublicKey ? `    ssh_authorized_keys:\n      - ${params.sshPublicKey}` : ''}
+    ssh_authorized_keys:
+      - ${params.sshPublicKey ?? ''}
 
 write_files:
   - path: /opt/openclaw/.env
@@ -144,17 +155,22 @@ write_files:
     permissions: '0644'
     encoding: b64
     content: ${caddyFile}
+  - path: /etc/systemd/system/ttyd.service
+    permissions: '0644'
+    encoding: b64
+    content: ${ttydService}
 
 runcmd:
   - curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/gpg.key' | gpg --dearmor -o /usr/share/keyrings/caddy-stable-archive-keyring.gpg
   - curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/debian.deb.txt' | tee /etc/apt/sources.list.d/caddy-stable.list
   - apt-get update
   - apt-get install -y caddy
-  - systemctl enable caddy
-  - systemctl start caddy
-  - systemctl enable docker
-  - systemctl start docker
+  - curl -sL https://github.com/nicholasgasior/gttyd/releases/download/1.7.2/ttyd.x86_64 -o /usr/bin/ttyd && chmod +x /usr/bin/ttyd || apt-get install -y ttyd || true
+  - chown -R openclaw:openclaw /opt/openclaw
   - chown -R 1000:1000 /opt/openclaw/config
+  - systemctl enable caddy && systemctl start caddy
+  - systemctl enable docker && systemctl start docker
+  - systemctl enable ttyd && systemctl start ttyd
   - cd /opt/openclaw && docker compose pull
   - cd /opt/openclaw && docker compose up -d
 `

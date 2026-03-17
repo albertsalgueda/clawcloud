@@ -2,30 +2,23 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
-import { usePathname, useParams } from 'next/navigation'
+import { usePathname } from 'next/navigation'
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet'
 import { Button } from '@/components/ui/button'
 import { Menu, Server, CreditCard, Settings, ExternalLink, Plus, Users } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { OrgSwitcher } from './org-switcher'
 
-export function MobileNav() {
+export function MobileNav({ currentOrgSlug }: { currentOrgSlug: string }) {
   const [open, setOpen] = useState(false)
   const pathname = usePathname()
-  const params = useParams<{ orgSlug: string }>()
-  const orgSlug = params.orgSlug
 
-  const navItems = orgSlug
-    ? [
-        { label: 'Instances', href: `/${orgSlug}/instances`, icon: Server },
-        { label: 'Billing', href: `/${orgSlug}/billing`, icon: CreditCard },
-        { label: 'Team', href: `/${orgSlug}/settings/members`, icon: Users },
-        { label: 'Settings', href: `/settings`, icon: Settings },
-      ]
-    : [
-        { label: 'Instances', href: `/instances`, icon: Server },
-        { label: 'Settings', href: `/settings`, icon: Settings },
-      ]
+  const navItems = [
+    { label: 'Instances', href: `/${currentOrgSlug}/instances`, icon: Server },
+    { label: 'Billing', href: `/${currentOrgSlug}/billing`, icon: CreditCard },
+    { label: 'Team', href: `/${currentOrgSlug}/settings/members`, icon: Users },
+    { label: 'Settings', href: '/settings', icon: Settings },
+  ]
 
   return (
     <Sheet open={open} onOpenChange={setOpen}>
@@ -38,10 +31,10 @@ export function MobileNav() {
         <div className="flex h-full flex-col p-3">
           <div className="px-2 py-2 text-sm font-medium">Agent Computers</div>
           <div className="mt-2">
-            <OrgSwitcher collapsed={false} />
+            <OrgSwitcher collapsed={false} currentOrgSlug={currentOrgSlug} />
           </div>
           <Link
-            href={orgSlug ? `/${orgSlug}/instances/new` : '/instances/new'}
+            href={`/${currentOrgSlug}/instances/new`}
             onClick={() => setOpen(false)}
             className="mt-2 flex items-center gap-2 rounded-xl border border-border bg-card px-3 py-2.5 text-sm font-medium"
           >

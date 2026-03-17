@@ -27,7 +27,7 @@ function getPageTitle(pathname: string) {
   return ''
 }
 
-export function Topbar() {
+export function Topbar({ currentOrgSlug }: { currentOrgSlug: string }) {
   const router = useRouter()
   const pathname = usePathname()
   const supabase = createClient()
@@ -44,7 +44,7 @@ export function Topbar() {
     <header className="sticky top-0 z-10 border-b border-border bg-background/90 px-4 backdrop-blur sm:px-6 lg:px-8">
       <div className="flex min-h-14 items-center gap-3">
         <div className="flex items-center gap-3 lg:hidden">
-          <MobileNav />
+          <MobileNav currentOrgSlug={currentOrgSlug} />
           <span className="font-medium">AC</span>
         </div>
 
@@ -60,7 +60,7 @@ export function Topbar() {
           >
             {collapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronLeft className="h-4 w-4" />}
           </Button>
-          <div className="text-sm font-medium">{title}</div>
+          <div className="text-sm font-medium">{collapsed ? 'Agent Computers' : title}</div>
         </div>
 
         <div className="ml-auto flex items-center gap-2">

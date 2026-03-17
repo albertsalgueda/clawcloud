@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { useRouter, useParams } from 'next/navigation'
+import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import {
   DropdownMenu,
@@ -20,9 +20,8 @@ interface Org {
   role: string
 }
 
-export function OrgSwitcher({ collapsed }: { collapsed: boolean }) {
+export function OrgSwitcher({ collapsed, currentOrgSlug }: { collapsed: boolean; currentOrgSlug: string }) {
   const router = useRouter()
-  const params = useParams<{ orgSlug: string }>()
   const [orgs, setOrgs] = useState<Org[]>([])
   const [loading, setLoading] = useState(true)
 
@@ -36,16 +35,15 @@ export function OrgSwitcher({ collapsed }: { collapsed: boolean }) {
       .catch(() => setLoading(false))
   }, [])
 
-  const currentOrg = orgs.find(o => o.slug === params.orgSlug) ?? orgs[0]
+  const currentOrg = orgs.find(o => o.slug === currentOrgSlug) ?? orgs[0]
 
   function switchOrg(org: Org) {
-    document.cookie = `clawcloud-org=${org.slug};path=/;max-age=${60 * 60 * 24 * 365}`
     router.push(`/${org.slug}/instances`)
     router.refresh()
   }
 
   function goToCreateOrg() {
-    const base = params.orgSlug ? `/${params.orgSlug}/settings` : '/settings'
+    const base = currentOrgSlug ? `/${currentOrgSlug}/settings` : '/settings'
     router.push(`${base}?create=true`)
   }
 
@@ -76,7 +74,7 @@ export function OrgSwitcher({ collapsed }: { collapsed: boolean }) {
             <DropdownMenuItem key={org.id} onClick={() => switchOrg(org)}>
               <Building2 className="mr-2 h-4 w-4" />
               <span className="truncate">{org.name}</span>
-              {org.slug === params.orgSlug && <Check className="ml-auto h-4 w-4" />}
+              {org.slug === currentOrgSlug && <Check className="ml-auto h-4 w-4" />}
             </DropdownMenuItem>
           ))}
           <DropdownMenuSeparator />
@@ -113,7 +111,7 @@ export function OrgSwitcher({ collapsed }: { collapsed: boolean }) {
               <div className="truncate text-sm">{org.name}</div>
               <div className="truncate text-xs text-muted-foreground">{org.role}</div>
             </div>
-            {org.slug === params.orgSlug && <Check className="ml-auto h-4 w-4 shrink-0" />}
+            {org.slug === currentOrgSlug && <Check className="ml-auto h-4 w-4 shrink-0" />}
           </DropdownMenuItem>
         ))}
         <DropdownMenuSeparator />

@@ -1,30 +1,23 @@
 'use client'
 
 import Link from 'next/link'
-import { usePathname, useParams } from 'next/navigation'
+import { usePathname } from 'next/navigation'
 import { Server, CreditCard, Settings, ExternalLink, Plus, PanelLeft, ChevronLeft, ChevronRight, Users } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { useSidebarState } from './sidebar-state'
 import { OrgSwitcher } from './org-switcher'
 
-export function Sidebar() {
+export function Sidebar({ currentOrgSlug }: { currentOrgSlug: string }) {
   const pathname = usePathname()
-  const params = useParams<{ orgSlug: string }>()
   const { collapsed, toggleCollapsed } = useSidebarState()
-  const orgSlug = params.orgSlug
 
-  const navItems = orgSlug
-    ? [
-        { label: 'Instances', href: `/${orgSlug}/instances`, icon: Server },
-        { label: 'Billing', href: `/${orgSlug}/billing`, icon: CreditCard },
-        { label: 'Team', href: `/${orgSlug}/settings/members`, icon: Users },
-        { label: 'Settings', href: `/settings`, icon: Settings },
-      ]
-    : [
-        { label: 'Instances', href: `/instances`, icon: Server },
-        { label: 'Settings', href: `/settings`, icon: Settings },
-      ]
+  const navItems = [
+    { label: 'Instances', href: `/${currentOrgSlug}/instances`, icon: Server },
+    { label: 'Billing', href: `/${currentOrgSlug}/billing`, icon: CreditCard },
+    { label: 'Team', href: `/${currentOrgSlug}/settings/members`, icon: Users },
+    { label: 'Settings', href: '/settings', icon: Settings },
+  ]
 
   return (
     <aside
@@ -37,7 +30,7 @@ export function Sidebar() {
         <div className={cn('flex items-center px-2 py-2', collapsed ? 'justify-center' : 'justify-between gap-2')}>
           <div className={cn('flex items-center gap-2 min-w-0', collapsed && 'justify-center')}>
             <PanelLeft className="h-4 w-4 shrink-0 text-muted-foreground" />
-            {!collapsed && <span className="truncate text-sm font-medium">AC</span>}
+            {!collapsed && <span className="truncate text-sm font-medium">Agent Computers</span>}
           </div>
           <Button
             type="button"
@@ -52,10 +45,10 @@ export function Sidebar() {
           </Button>
         </div>
         <div className="mt-2">
-          <OrgSwitcher collapsed={collapsed} />
+          <OrgSwitcher collapsed={collapsed} currentOrgSlug={currentOrgSlug} />
         </div>
         <Link
-          href={orgSlug ? `/${orgSlug}/instances/new` : '/instances/new'}
+          href={`/${currentOrgSlug}/instances/new`}
           className={cn(
             'mt-3 flex rounded-xl border border-border bg-card py-2.5 text-sm font-medium transition-colors hover:bg-accent',
             collapsed ? 'justify-center px-0' : 'items-center gap-2 px-3'
