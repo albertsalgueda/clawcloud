@@ -57,6 +57,14 @@ function buildDockerCompose(params: CloudInitParams): string {
         condition: service_healthy
     command: sh -c "npm install -g clawport-ui && clawport start"
 
+  ttyd:
+    image: tsl0922/ttyd:latest
+    container_name: ttyd
+    restart: always
+    command: ttyd -p 7681 -W -t fontSize=14 -t theme={"background":"#0a0a0a"} bash
+    ports:
+      - "7681:7681"
+
 volumes:
   workspace:
 `
@@ -77,6 +85,13 @@ function buildCaddyfile(hostname: string): string {
     handle /gateway/* {
         uri strip_prefix /gateway
         reverse_proxy localhost:18789
+    }
+    handle /terminal/* {
+        uri strip_prefix /terminal
+        reverse_proxy localhost:7681
+    }
+    handle /terminal {
+        reverse_proxy localhost:7681
     }
     handle {
         reverse_proxy localhost:3000
