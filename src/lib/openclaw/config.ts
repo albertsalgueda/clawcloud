@@ -5,7 +5,10 @@ export interface OpenClawConfig {
   gateway: {
     mode: string
     auth: { mode: string; token: string }
-    controlUi: { allowedOrigins: string[] }
+    controlUi: {
+      allowedOrigins: string[]
+      dangerouslyDisableDeviceAuth: boolean
+    }
     bind: string
   }
   agents: {
@@ -66,7 +69,8 @@ export function generateOpenClawConfig(
       mode: 'local',
       auth: { mode: 'token', token: params.gatewayToken },
       controlUi: {
-        allowedOrigins: [params.dashboardUrl],
+        allowedOrigins: ['*'],
+        dangerouslyDisableDeviceAuth: true,
       },
       bind: 'lan',
     },

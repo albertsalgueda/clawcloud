@@ -27,8 +27,7 @@ CUSTOMER_ID=${params.customerId}
 }
 
 function buildCaddyfile(hostname: string): string {
-  return `${hostname} {
-    handle /gateway/* {
+  const routes = `    handle /gateway/* {
         uri strip_prefix /gateway
         reverse_proxy localhost:18789
     }
@@ -43,9 +42,16 @@ function buildCaddyfile(hostname: string): string {
         reverse_proxy localhost:18789
     }
     header {
-        X-Frame-Options ""
-        Content-Security-Policy ""
-    }
+        -X-Frame-Options
+        -Content-Security-Policy
+    }`
+
+  return `${hostname} {
+${routes}
+}
+
+:80 {
+${routes}
 }
 `
 }

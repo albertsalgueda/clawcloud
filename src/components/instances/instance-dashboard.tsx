@@ -16,9 +16,10 @@ export function InstanceDashboard({ instance }: { instance: Instance }) {
     )
   }
 
-  const dashboardUrl = instance.dashboard_url
-    ? `${instance.dashboard_url}/gateway`
-    : `http://${instance.ip_address}:18789`
+  const baseUrl = instance.dashboard_url ?? `http://${instance.ip_address}`
+  const dashboardUrl = instance.gateway_token
+    ? `${baseUrl}/#token=${instance.gateway_token}`
+    : baseUrl
 
   return (
     <div className="space-y-3">
