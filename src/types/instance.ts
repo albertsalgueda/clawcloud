@@ -20,6 +20,7 @@ export interface Instance {
   dashboard_url: string | null
   config: Record<string, unknown>
   env_vars: Record<string, string>
+  config_version: number
   provisioned_at: string | null
   last_health_check: string | null
   created_at: string

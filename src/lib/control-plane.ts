@@ -19,20 +19,20 @@ export async function provisionInstance(
   const gatewayToken = crypto.randomBytes(32).toString('hex')
   const dashboardUrl = `https://${instance.slug}.${INSTANCE_DOMAIN}`
 
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'https://clawcloud.dev'
+  const proxyBaseUrl = `${appUrl}/api/gateway/proxy`
+
   const openclawConfig = generateOpenClawConfig(instance, org, {
     gatewayToken,
     dashboardUrl,
-    aiGatewayApiKey: process.env.VERCEL_AI_GATEWAY_KEY ?? '',
-    stripeRestrictedKey: process.env.STRIPE_RESTRICTED_ACCESS_KEY ?? '',
+    proxyBaseUrl,
   })
 
   const userData = generateCloudInit({
     instanceId: instance.id,
     customerId: org.id,
     slug: instance.slug,
-    stripeCustomerId: org.stripe_customer_id ?? '',
-    aiGatewayApiKey: process.env.VERCEL_AI_GATEWAY_KEY ?? '',
-    stripeRestrictedKey: process.env.STRIPE_RESTRICTED_ACCESS_KEY ?? '',
+    proxyBaseUrl,
     openclawConfig: JSON.stringify(openclawConfig, null, 2),
     openclawVersion: process.env.OPENCLAW_VERSION ?? 'latest',
     gatewayToken,
@@ -61,6 +61,7 @@ export async function provisionInstance(
       ip_address: server.public_net.ipv4.ip,
       gateway_token: gatewayToken,
       dashboard_url: dashboardUrl,
+      config_version: 2,
     })
     .eq('id', instance.id)
 

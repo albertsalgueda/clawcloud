@@ -1,5 +1,5 @@
 import { db } from '@/lib/db'
-import { usageEvents } from '@/lib/db/schema'
+import { creditTransactions } from '@/lib/db/schema'
 import { eq, and, gte, lte, sql } from 'drizzle-orm'
 
 export interface UsageSummary {
@@ -26,34 +26,35 @@ export async function getOrgUsageSummary(
   instanceId?: string
 ): Promise<UsageSummary> {
   const conditions = [
-    eq(usageEvents.org_id, orgId),
-    gte(usageEvents.created_at, periodStart),
-    lte(usageEvents.created_at, periodEnd),
+    eq(creditTransactions.org_id, orgId),
+    eq(creditTransactions.type, 'usage'),
+    gte(creditTransactions.created_at, periodStart),
+    lte(creditTransactions.created_at, periodEnd),
   ]
   if (instanceId) {
-    conditions.push(eq(usageEvents.instance_id, instanceId))
+    conditions.push(eq(creditTransactions.instance_id, instanceId))
   }
 
   const byModel = await db
     .select({
-      model: usageEvents.model,
-      input_tokens: sql<number>`COALESCE(SUM(${usageEvents.input_tokens}), 0)::int`,
-      output_tokens: sql<number>`COALESCE(SUM(${usageEvents.output_tokens}), 0)::int`,
-      cost: sql<number>`COALESCE(SUM(${usageEvents.billed_usd}::numeric), 0)::float`,
+      model: creditTransactions.model,
+      input_tokens: sql<number>`COALESCE(SUM(${creditTransactions.input_tokens}), 0)::int`,
+      output_tokens: sql<number>`COALESCE(SUM(${creditTransactions.output_tokens}), 0)::int`,
+      cost: sql<number>`COALESCE(SUM(ABS(${creditTransactions.amount_eur}::numeric)), 0)::float`,
     })
-    .from(usageEvents)
+    .from(creditTransactions)
     .where(and(...conditions))
-    .groupBy(usageEvents.model)
+    .groupBy(creditTransactions.model)
 
   const daily = await db
     .select({
-      date: sql<string>`DATE(${usageEvents.created_at})::text`,
-      cost: sql<number>`COALESCE(SUM(${usageEvents.billed_usd}::numeric), 0)::float`,
+      date: sql<string>`DATE(${creditTransactions.created_at})::text`,
+      cost: sql<number>`COALESCE(SUM(ABS(${creditTransactions.amount_eur}::numeric)), 0)::float`,
     })
-    .from(usageEvents)
+    .from(creditTransactions)
     .where(and(...conditions))
-    .groupBy(sql`DATE(${usageEvents.created_at})`)
-    .orderBy(sql`DATE(${usageEvents.created_at})`)
+    .groupBy(sql`DATE(${creditTransactions.created_at})`)
+    .orderBy(sql`DATE(${creditTransactions.created_at})`)
 
   const tokenCost = byModel.reduce((sum, m) => sum + Number(m.cost), 0)
 
@@ -63,7 +64,7 @@ export async function getOrgUsageSummary(
     token_cost: tokenCost,
     total_cost: tokenCost,
     by_model: byModel.map(m => ({
-      model: m.model,
+      model: m.model ?? 'unknown',
       input_tokens: Number(m.input_tokens),
       output_tokens: Number(m.output_tokens),
       cost: Number(m.cost),
