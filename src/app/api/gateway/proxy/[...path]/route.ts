@@ -95,7 +95,13 @@ function parseUsageFromSSEChunk(text: string): { inputTokens: number; outputToke
   return null
 }
 
-export async function POST(request: NextRequest) {
+export async function POST(
+  request: NextRequest,
+  { params }: { params: Promise<{ path: string[] }> },
+) {
+  const { path } = await params
+  const subPath = path.join('/')
+
   // 1. Extract and validate the gateway token
   const authHeader = request.headers.get('authorization')
   const token = authHeader?.startsWith('Bearer ')
@@ -159,7 +165,7 @@ export async function POST(request: NextRequest) {
 
   let upstreamResponse: Response
   try {
-    upstreamResponse = await fetch(`${AI_GATEWAY_URL}/chat/completions`, {
+    upstreamResponse = await fetch(`${AI_GATEWAY_URL}/${subPath}`, {
       method: 'POST',
       headers: upstreamHeaders,
       body: JSON.stringify(requestBody),
