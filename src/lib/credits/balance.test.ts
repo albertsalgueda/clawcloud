@@ -18,7 +18,7 @@ vi.mock('@/lib/db/schema', () => ({
 import { getBalance, checkSufficientBalance, deductCredits, addCredits } from './balance'
 
 function mockSelectChain(balance: string) {
-  const chain: Record<string, any> = {}
+  const chain: Record<string, unknown> = {}
   chain.from = vi.fn(() => chain)
   chain.where = vi.fn(() => chain)
   chain.limit = vi.fn(() => Promise.resolve([{ balance }]))
@@ -35,7 +35,7 @@ describe('getBalance', () => {
   })
 
   it('returns 0 when no org found', async () => {
-    const chain: Record<string, any> = {}
+    const chain: Record<string, unknown> = {}
     chain.from = vi.fn(() => chain)
     chain.where = vi.fn(() => chain)
     chain.limit = vi.fn(() => Promise.resolve([]))

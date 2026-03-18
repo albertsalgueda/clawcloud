@@ -20,6 +20,7 @@ export async function createInstanceCheckout(
     line_items: [
       { price: params.priceId, quantity: 1 },
     ],
+    allow_promotion_codes: true,
     subscription_data: {
       metadata: params.metadata,
     },

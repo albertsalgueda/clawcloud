@@ -1,5 +1,5 @@
 import { db } from '@/lib/db'
-import { organizations, creditTransactions } from '@/lib/db/schema'
+import { organizations } from '@/lib/db/schema'
 import { eq, sql } from 'drizzle-orm'
 
 interface DeductMeta {

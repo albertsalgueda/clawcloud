@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
+import type Stripe from 'stripe'
 
 vi.mock('./client', () => ({
   stripe: {
@@ -51,7 +52,7 @@ describe('ensureStripeCustomer', () => {
 
   it('returns existing stripe_customer_id if valid in current mode', async () => {
     const org = makeOrg({ stripe_customer_id: 'cus_existing' })
-    vi.mocked(stripe.customers.retrieve).mockResolvedValue({ id: 'cus_existing' } as any)
+    vi.mocked(stripe.customers.retrieve).mockResolvedValue({ id: 'cus_existing' } as Stripe.Customer)
     const result = await ensureStripeCustomer(org)
 
     expect(result).toBe('cus_existing')
@@ -62,11 +63,11 @@ describe('ensureStripeCustomer', () => {
   it('creates new customer if existing ID is from wrong Stripe mode', async () => {
     const org = makeOrg({ stripe_customer_id: 'cus_live_mode_id' })
     vi.mocked(stripe.customers.retrieve).mockRejectedValue(new Error('No such customer'))
-    vi.mocked(stripe.customers.create).mockResolvedValue({ id: 'cus_test_new' } as any)
+    vi.mocked(stripe.customers.create).mockResolvedValue({ id: 'cus_test_new' } as Stripe.Customer)
 
     const mockEq = vi.fn().mockResolvedValue({ data: null, error: null })
     const mockUpdate = vi.fn(() => ({ eq: mockEq }))
-    vi.mocked(supabaseAdmin.from).mockReturnValue({ update: mockUpdate } as any)
+    vi.mocked(supabaseAdmin.from).mockReturnValue({ update: mockUpdate } as ReturnType<typeof supabaseAdmin.from>)
 
     const result = await ensureStripeCustomer(org)
 
@@ -76,11 +77,11 @@ describe('ensureStripeCustomer', () => {
 
   it('creates a Stripe customer when none exists', async () => {
     const org = makeOrg({ stripe_customer_id: null })
-    vi.mocked(stripe.customers.create).mockResolvedValue({ id: 'cus_new123' } as any)
+    vi.mocked(stripe.customers.create).mockResolvedValue({ id: 'cus_new123' } as Stripe.Customer)
 
     const mockEq = vi.fn().mockResolvedValue({ data: null, error: null })
     const mockUpdate = vi.fn(() => ({ eq: mockEq }))
-    vi.mocked(supabaseAdmin.from).mockReturnValue({ update: mockUpdate } as any)
+    vi.mocked(supabaseAdmin.from).mockReturnValue({ update: mockUpdate } as ReturnType<typeof supabaseAdmin.from>)
 
     const result = await ensureStripeCustomer(org)
 

@@ -198,8 +198,8 @@ async function handlePaymentIntentFailed(pi: Stripe.PaymentIntent): Promise<void
     .eq('id', orgId)
 }
 
-async function handleSubscriptionCreated(_sub: Stripe.Subscription): Promise<void> {
-  // Instance creation is handled in handleCheckoutCompleted.
+async function handleSubscriptionCreated(_: Stripe.Subscription): Promise<void> {
+  void _
 }
 
 async function handleSubscriptionUpdated(sub: Stripe.Subscription): Promise<void> {

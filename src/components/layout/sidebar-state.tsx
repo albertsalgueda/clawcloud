@@ -1,8 +1,14 @@
 'use client'
 
-import { createContext, useContext, useEffect, useMemo, useState } from 'react'
+import { createContext, useContext, useEffect, useMemo, useState, useSyncExternalStore } from 'react'
 
 const SIDEBAR_STORAGE_KEY = 'clawcloud.sidebar.collapsed'
+
+function getStoredCollapsed(): boolean {
+  return window.localStorage.getItem(SIDEBAR_STORAGE_KEY) === 'true'
+}
+
+const noop = () => () => {}
 
 interface SidebarStateContextValue {
   collapsed: boolean
@@ -13,20 +19,12 @@ interface SidebarStateContextValue {
 const SidebarStateContext = createContext<SidebarStateContextValue | null>(null)
 
 export function SidebarStateProvider({ children }: { children: React.ReactNode }) {
-  const [collapsed, setCollapsed] = useState(false)
-  const [hydrated, setHydrated] = useState(false)
+  const initialCollapsed = useSyncExternalStore(noop, getStoredCollapsed, () => false)
+  const [collapsed, setCollapsed] = useState(initialCollapsed)
 
   useEffect(() => {
-    const stored = window.localStorage.getItem(SIDEBAR_STORAGE_KEY)
-    if (stored === 'true') setCollapsed(true)
-    setHydrated(true)
-  }, [])
-
-  useEffect(() => {
-    if (hydrated) {
-      window.localStorage.setItem(SIDEBAR_STORAGE_KEY, String(collapsed))
-    }
-  }, [collapsed, hydrated])
+    window.localStorage.setItem(SIDEBAR_STORAGE_KEY, String(collapsed))
+  }, [collapsed])
 
   const value = useMemo<SidebarStateContextValue>(() => ({
     collapsed,

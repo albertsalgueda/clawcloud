@@ -48,7 +48,7 @@ vi.mock('@/lib/constants', () => ({
 import { handleStripeEvent } from './webhooks'
 
 function chainMock(returnValue: unknown) {
-  const chain: Record<string, any> = {}
+  const chain: Record<string, unknown> = {}
   const terminal = () => Promise.resolve(returnValue)
   const methods = ['from', 'select', 'update', 'insert', 'eq', 'in', 'single', 'order', 'limit']
   for (const m of methods) {
@@ -311,7 +311,7 @@ describe('handleStripeEvent', () => {
   describe('payment_intent.succeeded', () => {
     it('adds credits for credit_topup payment intents', async () => {
       const txnChain = chainMock({ data: [], error: null })
-      txnChain.single = undefined as any
+      txnChain.single = undefined as unknown
       txnChain.limit = vi.fn(() => Promise.resolve({ data: [], error: null }))
       const orgChain = chainMock({ data: null, error: null })
 
@@ -460,7 +460,7 @@ describe('handleStripeEvent', () => {
         { id: 'inst-1', hetzner_server_id: 12345 },
         { id: 'inst-2', hetzner_server_id: null },
       ]
-      const instancesChain: Record<string, any> = {
+      const instancesChain: Record<string, unknown> = {
         select: vi.fn(() => instancesChain),
         eq: vi.fn(() => instancesChain),
         update: vi.fn(() => ({
