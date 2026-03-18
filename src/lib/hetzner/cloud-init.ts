@@ -120,10 +120,6 @@ write_files:
     permissions: '0644'
     encoding: b64
     content: ${configFile}
-  - path: /etc/caddy/Caddyfile
-    permissions: '0644'
-    encoding: b64
-    content: ${caddyFile}
   - path: /etc/systemd/system/ttyd.service
     permissions: '0644'
     encoding: b64
@@ -142,7 +138,10 @@ runcmd:
   - curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/gpg.key' | gpg --dearmor -o /usr/share/keyrings/caddy-stable-archive-keyring.gpg
   - curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/debian.deb.txt' | tee /etc/apt/sources.list.d/caddy-stable.list
   - apt-get update
-  - DEBIAN_FRONTEND=noninteractive apt-get install -y -o Dpkg::Options::='--force-confnew' caddy
+  - DEBIAN_FRONTEND=noninteractive apt-get install -y caddy
+
+  # Write Caddyfile after install so the package default doesn't overwrite it
+  - printf '%s' '${caddyFile}' | base64 -d > /etc/caddy/Caddyfile
 
   # ttyd
   - snap install ttyd --classic

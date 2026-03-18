@@ -7,10 +7,76 @@ import { InstanceActions } from './instance-actions'
 import { PLANS, REGIONS } from '@/lib/constants'
 import { formatDate } from '@/lib/utils'
 import { usePolling } from '@/hooks/use-polling'
+import { useState, useEffect } from 'react'
 import { Copy, Globe, Cpu, MemoryStick, Clock } from 'lucide-react'
 import { toast } from 'sonner'
 import type { Instance } from '@/types/instance'
 import type { HealthStatus } from '@/lib/openclaw/health'
+
+function ProvisioningProgress({ instance, healthStatus }: { instance: Instance; healthStatus?: string }) {
+  const steps = [
+    { label: 'Server created', done: !!instance.hetzner_server_id },
+    { label: 'IP address assigned', done: !!instance.ip_address },
+    { label: 'DNS configured', done: !!instance.dashboard_url },
+    { label: 'Installing OpenClaw & dependencies', done: healthStatus === 'healthy' },
+    { label: 'Gateway online', done: healthStatus === 'healthy' },
+  ]
+
+  const completedCount = steps.filter(s => s.done).length
+  const currentIdx = steps.findIndex(s => !s.done)
+
+  const [now, setNow] = useState(Date.now())
+  useEffect(() => {
+    const id = setInterval(() => setNow(Date.now()), 1000)
+    return () => clearInterval(id)
+  }, [])
+  const elapsed = Math.floor((now - new Date(instance.created_at).getTime()) / 1000)
+  const mins = Math.floor(elapsed / 60)
+  const secs = elapsed % 60
+
+  return (
+    <Card className="border-yellow-500/20 bg-yellow-500/5">
+      <CardContent className="py-4 space-y-3">
+        <div className="flex items-center justify-between">
+          <p className="text-sm font-medium text-yellow-600 dark:text-yellow-400">
+            Provisioning in progress...
+          </p>
+          <span className="text-xs font-mono text-muted-foreground">
+            {mins}:{secs.toString().padStart(2, '0')}
+          </span>
+        </div>
+
+        <div className="w-full bg-yellow-500/10 rounded-full h-1.5">
+          <div
+            className="bg-yellow-500 h-1.5 rounded-full transition-all duration-500"
+            style={{ width: `${Math.max(10, (completedCount / steps.length) * 100)}%` }}
+          />
+        </div>
+
+        <div className="space-y-1.5">
+          {steps.map((step, i) => (
+            <div key={i} className="flex items-center gap-2 text-xs">
+              {step.done ? (
+                <span className="text-green-500">&#10003;</span>
+              ) : i === currentIdx ? (
+                <span className="text-yellow-500 animate-pulse">&#9679;</span>
+              ) : (
+                <span className="text-muted-foreground/40">&#9675;</span>
+              )}
+              <span className={step.done ? 'text-muted-foreground' : i === currentIdx ? 'text-foreground' : 'text-muted-foreground/40'}>
+                {step.label}
+              </span>
+            </div>
+          ))}
+        </div>
+
+        <p className="text-xs text-muted-foreground">
+          This usually takes 3-5 minutes. The dashboard will appear once provisioning completes.
+        </p>
+      </CardContent>
+    </Card>
+  )
+}
 
 export function InstanceOverview({ instance: initialInstance }: { instance: Instance }) {
   const isProvisioning = initialInstance.status === 'provisioning'
@@ -50,17 +116,7 @@ export function InstanceOverview({ instance: initialInstance }: { instance: Inst
       </div>
 
       {instance.status === 'provisioning' && (
-        <Card className="border-yellow-500/20 bg-yellow-500/5">
-          <CardContent className="py-4">
-            <p className="text-sm font-medium text-yellow-600 dark:text-yellow-400">
-              Provisioning in progress...
-            </p>
-            <p className="text-xs text-muted-foreground mt-1">
-              Your server is being set up with OpenClaw. This usually takes 3-5 minutes.
-              The dashboard will be available once provisioning completes.
-            </p>
-          </CardContent>
-        </Card>
+        <ProvisioningProgress instance={instance} healthStatus={healthData?.health?.status} />
       )}
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">

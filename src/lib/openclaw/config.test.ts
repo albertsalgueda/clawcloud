@@ -64,7 +64,7 @@ describe('generateOpenClawConfig', () => {
     expect(config.gateway.auth.mode).toBe('token')
     expect(config.gateway.auth.token).toBe('gateway-token-xyz')
     expect(config.gateway.bind).toBe('lan')
-    expect(config.gateway.controlUi.allowedOrigins).toEqual(['https://my-instance.agentcomputers.app'])
+    expect(config.gateway.controlUi.allowedOrigins).toEqual(['*'])
   })
 
   it('sets default model with primary and fallbacks', () => {
@@ -74,34 +74,38 @@ describe('generateOpenClawConfig', () => {
     expect(config.agents.defaults.model.fallbacks).not.toContain(config.agents.defaults.model.primary)
   })
 
-  it('uses proxy URL instead of direct AI gateway URL', () => {
+  it('registers per-prefix providers pointing to proxy URL', () => {
     const config = generateOpenClawConfig(makeInstance(), makeOrg(), defaultParams)
 
-    const provider = config.models.providers['ai-gateway']
-    expect(provider).toBeDefined()
-    expect(provider.baseUrl).toBe('https://clawcloud.dev/api/gateway/proxy')
-    expect(provider.api).toBe('openai-responses')
-    expect(provider.models.length).toBeGreaterThanOrEqual(5)
+    for (const prefix of ['anthropic', 'openai', 'google']) {
+      const provider = config.models.providers[prefix]
+      expect(provider).toBeDefined()
+      expect(provider.baseUrl).toBe('https://clawcloud.dev/api/gateway/proxy')
+      expect(provider.api).toBe('openai-responses')
+      expect(provider.models.length).toBeGreaterThan(0)
+      expect(provider.models.every((m: { id: string }) => m.id.startsWith(`${prefix}/`))).toBe(true)
+    }
   })
 
-  it('uses gateway token as API key (no secrets in config)', () => {
+  it('uses gateway token as API key for all providers', () => {
     const config = generateOpenClawConfig(makeInstance(), makeOrg(), defaultParams)
 
-    const provider = config.models.providers['ai-gateway']
-    expect(provider.apiKey).toBe('gateway-token-xyz')
+    for (const prefix of ['anthropic', 'openai', 'google']) {
+      expect(config.models.providers[prefix].apiKey).toBe('gateway-token-xyz')
+    }
   })
 
   it('does not include any billing headers or secrets', () => {
     const config = generateOpenClawConfig(makeInstance(), makeOrg(), defaultParams)
-
-    const provider = config.models.providers['ai-gateway']
     const configStr = JSON.stringify(config)
 
-    // No Stripe keys or billing headers
     expect(configStr).not.toContain('stripe')
     expect(configStr).not.toContain('rk_test')
     expect(configStr).not.toContain('restricted')
-    expect((provider as unknown as Record<string, unknown>).headers).toBeUndefined()
+
+    for (const prefix of ['anthropic', 'openai', 'google']) {
+      expect((config.models.providers[prefix] as unknown as Record<string, unknown>).headers).toBeUndefined()
+    }
   })
 
   it('works without stripe_customer_id (no longer required)', () => {

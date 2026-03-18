@@ -7,9 +7,7 @@ describe('generateCloudInit', () => {
       instanceId: 'inst-1',
       customerId: 'org-1',
       slug: 'demo',
-      stripeCustomerId: 'cus_123',
-      aiGatewayApiKey: 'vck_123',
-      stripeRestrictedKey: 'rk_123',
+      proxyBaseUrl: 'https://app.example/api/gateway/proxy',
       openclawConfig: '{"hello":"world"}',
       openclawVersion: '1.2.3',
       gatewayToken: 'gateway-token',
@@ -22,24 +20,19 @@ describe('generateCloudInit', () => {
     expect(result).toContain('#cloud-config')
     expect(result).toContain('/home/openclaw/.env')
     expect(result).toContain('/home/openclaw/.openclaw/openclaw.json')
-    expect(result).toContain('/etc/caddy/Caddyfile')
     expect(result).toContain('/etc/systemd/system/ttyd.service')
     expect(result).toContain('/etc/systemd/system/openclaw-gateway.service')
     expect(result).toContain('ssh-rsa AAAA')
     expect(result).toContain(
       Buffer.from(
-        'AI_GATEWAY_URL=https://gateway.ai.vercel.app/v1\n' +
-        'AI_GATEWAY_API_KEY=vck_123\n' +
-        'STRIPE_CUSTOMER_ID=cus_123\n' +
-        'STRIPE_RESTRICTED_KEY=rk_123\n' +
+        'AI_GATEWAY_URL=https://app.example/api/gateway/proxy\n' +
         'INSTANCE_ID=inst-1\n' +
         'CUSTOMER_ID=org-1\n'
       ).toString('base64')
     )
-    expect(result).toContain(
-      Buffer.from('demo.example.com {\n').toString('base64').slice(0, 12)
-    )
     expect(result).toContain(Buffer.from('{"hello":"world"}').toString('base64'))
     expect(result).toContain('npx playwright install --with-deps chromium')
+    expect(result).toContain('base64 -d > /etc/caddy/Caddyfile')
+    expect(result).toContain('openclaw-gateway.service')
   })
 })

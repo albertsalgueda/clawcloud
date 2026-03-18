@@ -9,8 +9,14 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Separator } from '@/components/ui/separator'
 import { ConfirmDialog } from '@/components/shared/confirm-dialog'
 import { toast } from 'sonner'
-import { Loader2, Plus, Trash2, X } from 'lucide-react'
+import { Loader2, Plus, Trash2, X, Key, Eye, EyeOff } from 'lucide-react'
 import type { Instance } from '@/types/instance'
+
+const AI_PROVIDERS = [
+  { key: 'ANTHROPIC_API_KEY', label: 'Anthropic', placeholder: 'sk-ant-...' },
+  { key: 'OPENAI_API_KEY', label: 'OpenAI', placeholder: 'sk-...' },
+  { key: 'GOOGLE_API_KEY', label: 'Google AI', placeholder: 'AIza...' },
+] as const
 
 export function InstanceSettingsForm({ instance }: { instance: Instance }) {
   const router = useRouter()
@@ -19,6 +25,11 @@ export function InstanceSettingsForm({ instance }: { instance: Instance }) {
   const [envVars, setEnvVars] = useState<Array<{ key: string; value: string }>>(
     Object.entries(instance.env_vars ?? {}).map(([key, value]) => ({ key, value }))
   )
+  const providerKeys = (instance.config as Record<string, unknown>)?.provider_keys as Record<string, string> | undefined
+  const [apiKeys, setApiKeys] = useState<Record<string, string>>(
+    () => AI_PROVIDERS.reduce((acc, p) => ({ ...acc, [p.key]: providerKeys?.[p.key] ?? '' }), {} as Record<string, string>)
+  )
+  const [visibleKeys, setVisibleKeys] = useState<Record<string, boolean>>({})
   const [saving, setSaving] = useState(false)
   const [deleteOpen, setDeleteOpen] = useState(false)
   const [deleteLoading, setDeleteLoading] = useState(false)
@@ -45,10 +56,19 @@ export function InstanceSettingsForm({ instance }: { instance: Instance }) {
         if (key.trim()) envObj[key.trim()] = value
       })
 
+      const providerKeysObj: Record<string, string> = {}
+      for (const [k, v] of Object.entries(apiKeys)) {
+        if (v.trim()) providerKeysObj[k] = v.trim()
+      }
+
       const res = await fetch(`/api/instances/${instance.id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name, env_vars: envObj }),
+        body: JSON.stringify({
+          name,
+          env_vars: envObj,
+          config: { ...(instance.config as Record<string, unknown>), provider_keys: providerKeysObj },
+        }),
       })
 
       if (!res.ok) {
@@ -95,6 +115,46 @@ export function InstanceSettingsForm({ instance }: { instance: Instance }) {
             <Label htmlFor="instance-name">Instance Name</Label>
             <Input id="instance-name" value={name} onChange={(e) => setName(e.target.value)} />
           </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Key className="h-5 w-5" />
+            AI Provider Keys
+          </CardTitle>
+          <CardDescription>
+            Bring your own API keys to use models directly. Leave blank to use included credits.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {AI_PROVIDERS.map((provider) => (
+            <div key={provider.key} className="space-y-1.5">
+              <Label htmlFor={provider.key}>{provider.label}</Label>
+              <div className="flex items-center gap-2">
+                <Input
+                  id={provider.key}
+                  type={visibleKeys[provider.key] ? 'text' : 'password'}
+                  placeholder={provider.placeholder}
+                  value={apiKeys[provider.key]}
+                  onChange={(e) => setApiKeys({ ...apiKeys, [provider.key]: e.target.value })}
+                  className="font-mono"
+                />
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  type="button"
+                  onClick={() => setVisibleKeys({ ...visibleKeys, [provider.key]: !visibleKeys[provider.key] })}
+                >
+                  {visibleKeys[provider.key] ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                </Button>
+              </div>
+            </div>
+          ))}
+          <p className="text-xs text-muted-foreground">
+            Keys are stored encrypted and sent to your instance. When set, your instance uses these keys directly instead of the metered proxy.
+          </p>
         </CardContent>
       </Card>
 

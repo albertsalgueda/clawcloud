@@ -29,13 +29,21 @@ export interface OpenClawConfig {
 
 const DEFAULT_MODEL = 'anthropic/claude-sonnet-4-5'
 
-const AVAILABLE_MODELS = [
-  { id: 'anthropic/claude-sonnet-4-5', name: 'Claude Sonnet 4.5' },
-  { id: 'anthropic/claude-opus-4-6', name: 'Claude Opus 4.6' },
-  { id: 'openai/gpt-4o', name: 'GPT-4o' },
-  { id: 'openai/o3-mini', name: 'o3-mini' },
-  { id: 'google/gemini-2.5-pro', name: 'Gemini 2.5 Pro' },
-]
+const AVAILABLE_MODELS: Record<string, Array<{ id: string; name: string }>> = {
+  anthropic: [
+    { id: 'anthropic/claude-sonnet-4-5', name: 'Claude Sonnet 4.5' },
+    { id: 'anthropic/claude-opus-4-6', name: 'Claude Opus 4.6' },
+  ],
+  openai: [
+    { id: 'openai/gpt-4o', name: 'GPT-4o' },
+    { id: 'openai/o3-mini', name: 'o3-mini' },
+  ],
+  google: [
+    { id: 'google/gemini-2.5-pro', name: 'Gemini 2.5 Pro' },
+  ],
+}
+
+const ALL_MODELS = Object.values(AVAILABLE_MODELS).flat()
 
 interface ConfigParams {
   gatewayToken: string
@@ -69,20 +77,23 @@ export function generateOpenClawConfig(
       defaults: {
         model: {
           primary: DEFAULT_MODEL,
-          fallbacks: AVAILABLE_MODELS.filter(m => m.id !== DEFAULT_MODEL).map(m => m.id),
+          fallbacks: ALL_MODELS.filter(m => m.id !== DEFAULT_MODEL).map(m => m.id),
         },
       },
     },
     models: {
       mode: 'merge',
-      providers: {
-        'ai-gateway': {
-          baseUrl: params.proxyBaseUrl,
-          apiKey: params.gatewayToken,
-          api: 'openai-responses',
-          models: AVAILABLE_MODELS.map(m => ({ id: m.id, name: m.name })),
-        },
-      },
+      providers: Object.fromEntries(
+        Object.entries(AVAILABLE_MODELS).map(([provider, models]) => [
+          provider,
+          {
+            baseUrl: params.proxyBaseUrl,
+            apiKey: params.gatewayToken,
+            api: 'openai-responses',
+            models,
+          },
+        ])
+      ),
     },
   }
 }
