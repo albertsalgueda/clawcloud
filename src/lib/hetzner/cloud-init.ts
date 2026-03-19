@@ -14,9 +14,14 @@ function b64(text: string): string {
   return Buffer.from(text).toString('base64')
 }
 
+function buildOpenClawEnv(params: CloudInitParams): string {
+  return `AI_GATEWAY_API_KEY=${params.gatewayToken}
+AI_GATEWAY_BASE_URL=${params.proxyBaseUrl}
+`
+}
+
 function buildEnvFile(params: CloudInitParams): string {
-  return `AI_GATEWAY_URL=${params.proxyBaseUrl}
-INSTANCE_ID=${params.instanceId}
+  return `INSTANCE_ID=${params.instanceId}
 CUSTOMER_ID=${params.customerId}
 `
 }
@@ -92,6 +97,7 @@ export function generateCloudInit(params: CloudInitParams): string {
   const hostname = `${params.slug}.${params.domain}`
 
   const envFile = b64(buildEnvFile(params))
+  const openclawEnv = b64(buildOpenClawEnv(params))
   const configFile = b64(params.openclawConfig)
   const caddyFile = b64(buildCaddyfile(hostname))
   const ttydService = b64(buildTtydService())
@@ -116,6 +122,10 @@ write_files:
     permissions: '0600'
     encoding: b64
     content: ${envFile}
+  - path: /home/openclaw/.openclaw/.env
+    permissions: '0600'
+    encoding: b64
+    content: ${openclawEnv}
   - path: /home/openclaw/.openclaw/openclaw.json
     permissions: '0644'
     encoding: b64

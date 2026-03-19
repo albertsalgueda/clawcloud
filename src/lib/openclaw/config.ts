@@ -13,37 +13,12 @@ export interface OpenClawConfig {
   }
   agents: {
     defaults: {
-      model: { primary: string; fallbacks: string[] }
+      model: { primary: string }
     }
   }
-  models: {
-    mode: string
-    providers: Record<string, {
-      baseUrl: string
-      apiKey: string
-      api: string
-      models: Array<{ id: string; name: string }>
-    }>
-  }
 }
 
-const DEFAULT_MODEL = 'anthropic/claude-sonnet-4-5'
-
-const AVAILABLE_MODELS: Record<string, Array<{ id: string; name: string }>> = {
-  anthropic: [
-    { id: 'anthropic/claude-sonnet-4-5', name: 'Claude Sonnet 4.5' },
-    { id: 'anthropic/claude-opus-4-6', name: 'Claude Opus 4.6' },
-  ],
-  openai: [
-    { id: 'openai/gpt-4o', name: 'GPT-4o' },
-    { id: 'openai/o3-mini', name: 'o3-mini' },
-  ],
-  google: [
-    { id: 'google/gemini-2.5-pro', name: 'Gemini 2.5 Pro' },
-  ],
-}
-
-const ALL_MODELS = Object.values(AVAILABLE_MODELS).flat()
+const DEFAULT_MODEL = 'vercel-ai-gateway/anthropic/claude-sonnet-4-5'
 
 interface ConfigParams {
   gatewayToken: string
@@ -54,9 +29,10 @@ interface ConfigParams {
 /**
  * Generate the OpenClaw configuration for a VPS instance.
  *
- * No secrets (AI gateway key, Stripe keys) are included — LLM requests
- * go through the ClawCloud proxy which holds secrets server-side.
- * The VPS authenticates to the proxy using its gateway_token.
+ * Uses the built-in vercel-ai-gateway provider. The API key and base URL
+ * are set via environment variables (AI_GATEWAY_API_KEY, AI_GATEWAY_BASE_URL)
+ * in ~/.openclaw/.env, not in this config file. OpenClaw auto-discovers
+ * all available models from the gateway.
  */
 export function generateOpenClawConfig(
   _instance: Instance,
@@ -77,23 +53,8 @@ export function generateOpenClawConfig(
       defaults: {
         model: {
           primary: DEFAULT_MODEL,
-          fallbacks: ALL_MODELS.filter(m => m.id !== DEFAULT_MODEL).map(m => m.id),
         },
       },
-    },
-    models: {
-      mode: 'merge',
-      providers: Object.fromEntries(
-        Object.entries(AVAILABLE_MODELS).map(([provider, models]) => [
-          provider,
-          {
-            baseUrl: params.proxyBaseUrl,
-            apiKey: params.gatewayToken,
-            api: 'openai-responses',
-            models,
-          },
-        ])
-      ),
     },
   }
 }

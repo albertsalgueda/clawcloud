@@ -19,17 +19,18 @@ describe('generateCloudInit', () => {
 
     expect(result).toContain('#cloud-config')
     expect(result).toContain('/home/openclaw/.env')
+    expect(result).toContain('/home/openclaw/.openclaw/.env')
     expect(result).toContain('/home/openclaw/.openclaw/openclaw.json')
     expect(result).toContain('/etc/systemd/system/ttyd.service')
     expect(result).toContain('/etc/systemd/system/openclaw-gateway.service')
     expect(result).toContain('ssh-rsa AAAA')
-    expect(result).toContain(
-      Buffer.from(
-        'AI_GATEWAY_URL=https://app.example/api/gateway/proxy\n' +
-        'INSTANCE_ID=inst-1\n' +
-        'CUSTOMER_ID=org-1\n'
-      ).toString('base64')
-    )
+
+    const openclawEnvB64 = Buffer.from(
+      'AI_GATEWAY_API_KEY=gateway-token\n' +
+      'AI_GATEWAY_BASE_URL=https://app.example/api/gateway/proxy\n'
+    ).toString('base64')
+    expect(result).toContain(openclawEnvB64)
+
     expect(result).toContain(Buffer.from('{"hello":"world"}').toString('base64'))
     expect(result).toContain('npx playwright install --with-deps chromium')
     expect(result).toContain('base64 -d > /etc/caddy/Caddyfile')

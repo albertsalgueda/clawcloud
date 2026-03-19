@@ -54,7 +54,7 @@ function makeInstance(overrides: Partial<Instance> = {}): Instance {
 const defaultParams = {
   gatewayToken: 'gateway-token-xyz',
   dashboardUrl: 'https://my-instance.agentcomputers.app',
-  proxyBaseUrl: 'https://clawcloud.dev/api/gateway/proxy',
+  proxyBaseUrl: 'https://agentcomputers.app/api/gateway/proxy',
 }
 
 describe('generateOpenClawConfig', () => {
@@ -65,53 +65,26 @@ describe('generateOpenClawConfig', () => {
     expect(config.gateway.auth.token).toBe('gateway-token-xyz')
     expect(config.gateway.bind).toBe('lan')
     expect(config.gateway.controlUi.allowedOrigins).toEqual(['*'])
+    expect(config.gateway.controlUi.dangerouslyDisableDeviceAuth).toBe(true)
   })
 
-  it('sets default model with primary and fallbacks', () => {
+  it('sets default model to vercel-ai-gateway provider', () => {
     const config = generateOpenClawConfig(makeInstance(), makeOrg(), defaultParams)
-    expect(config.agents.defaults.model.primary).toBe('anthropic/claude-sonnet-4-5')
-    expect(config.agents.defaults.model.fallbacks.length).toBeGreaterThan(0)
-    expect(config.agents.defaults.model.fallbacks).not.toContain(config.agents.defaults.model.primary)
+    expect(config.agents.defaults.model.primary).toBe('vercel-ai-gateway/anthropic/claude-sonnet-4-5')
   })
 
-  it('registers per-prefix providers pointing to proxy URL', () => {
+  it('does not include models.providers (uses built-in vercel-ai-gateway)', () => {
     const config = generateOpenClawConfig(makeInstance(), makeOrg(), defaultParams)
-
-    for (const prefix of ['anthropic', 'openai', 'google']) {
-      const provider = config.models.providers[prefix]
-      expect(provider).toBeDefined()
-      expect(provider.baseUrl).toBe('https://clawcloud.dev/api/gateway/proxy')
-      expect(provider.api).toBe('openai-responses')
-      expect(provider.models.length).toBeGreaterThan(0)
-      expect(provider.models.every((m: { id: string }) => m.id.startsWith(`${prefix}/`))).toBe(true)
-    }
+    expect((config as Record<string, unknown>).models).toBeUndefined()
   })
 
-  it('uses gateway token as API key for all providers', () => {
-    const config = generateOpenClawConfig(makeInstance(), makeOrg(), defaultParams)
-
-    for (const prefix of ['anthropic', 'openai', 'google']) {
-      expect(config.models.providers[prefix].apiKey).toBe('gateway-token-xyz')
-    }
-  })
-
-  it('does not include any billing headers or secrets', () => {
+  it('does not include any secrets in the config', () => {
     const config = generateOpenClawConfig(makeInstance(), makeOrg(), defaultParams)
     const configStr = JSON.stringify(config)
 
     expect(configStr).not.toContain('stripe')
     expect(configStr).not.toContain('rk_test')
-    expect(configStr).not.toContain('restricted')
-
-    for (const prefix of ['anthropic', 'openai', 'google']) {
-      expect((config.models.providers[prefix] as unknown as Record<string, unknown>).headers).toBeUndefined()
-    }
-  })
-
-  it('works without stripe_customer_id (no longer required)', () => {
-    const org = makeOrg({ stripe_customer_id: null })
-    expect(() =>
-      generateOpenClawConfig(makeInstance(), org, defaultParams)
-    ).not.toThrow()
+    expect(configStr).not.toContain('AI_GATEWAY_API_KEY')
+    expect(configStr).not.toContain('proxyBaseUrl')
   })
 })
