@@ -5,15 +5,10 @@ import { maybeAutoTopUp } from '@/lib/credits/auto-topup'
 import { TOKEN_PRICING_EUR, DEFAULT_TOKEN_PRICE_EUR } from '@/lib/constants'
 
 export const runtime = 'nodejs'
-// Disable body size limit for LLM requests
-export const maxDuration = 300 // 5 minutes for long-running LLM calls
+export const maxDuration = 300
 
 const AI_GATEWAY_URL = 'https://gateway.ai.vercel.app/v1'
 
-/**
- * Cache for gateway_token -> instance/org resolution.
- * Avoids DB lookup on every request. TTL: 60 seconds.
- */
 const tokenCache = new Map<string, { instanceId: string; orgId: string; expiresAt: number }>()
 const TOKEN_CACHE_TTL_MS = 60_000
 
@@ -53,14 +48,10 @@ function calculateCost(
   return inputTokens * pricing.input + outputTokens * pricing.output
 }
 
-/**
- * Parse token usage from a completed (non-streaming) response body.
- */
 function parseUsageFromBody(body: unknown): { inputTokens: number; outputTokens: number } | null {
   if (!body || typeof body !== 'object') return null
   const obj = body as Record<string, unknown>
 
-  // OpenAI-compatible format
   if (obj.usage && typeof obj.usage === 'object') {
     const usage = obj.usage as Record<string, unknown>
     const inputTokens = Number(usage.prompt_tokens ?? usage.input_tokens ?? 0)
@@ -73,12 +64,7 @@ function parseUsageFromBody(body: unknown): { inputTokens: number; outputTokens:
   return null
 }
 
-/**
- * Parse token usage from SSE stream data.
- * Looks for usage info in the final chunk (often sent with `data: [DONE]` or in the last delta).
- */
 function parseUsageFromSSEChunk(text: string): { inputTokens: number; outputTokens: number } | null {
-  // Try to find a line with usage data in the SSE stream
   const lines = text.split('\n')
   for (const line of lines) {
     if (!line.startsWith('data: ')) continue
@@ -89,7 +75,7 @@ function parseUsageFromSSEChunk(text: string): { inputTokens: number; outputToke
       const usage = parseUsageFromBody(parsed)
       if (usage) return usage
     } catch {
-      // Not valid JSON, skip
+      // skip
     }
   }
   return null
@@ -97,12 +83,11 @@ function parseUsageFromSSEChunk(text: string): { inputTokens: number; outputToke
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: Promise<{ path: string[] }> },
+  { params }: { params: Promise<{ path?: string[] }> },
 ) {
   const { path } = await params
-  const subPath = path.join('/')
+  const subPath = path?.join('/') ?? 'chat/completions'
 
-  // 1. Extract and validate the gateway token
   const authHeader = request.headers.get('authorization')
   const token = authHeader?.startsWith('Bearer ')
     ? authHeader.slice(7)
@@ -125,7 +110,6 @@ export async function POST(
 
   const { instanceId, orgId } = resolved
 
-  // 2. Quick balance check (non-locking for speed)
   const hasFunds = await checkSufficientBalance(orgId, 0.001)
   if (!hasFunds) {
     return NextResponse.json(
@@ -134,7 +118,6 @@ export async function POST(
     )
   }
 
-  // 3. Parse the request to extract model info
   let requestBody: Record<string, unknown>
   try {
     requestBody = await request.json()
@@ -148,7 +131,6 @@ export async function POST(
   const model = String(requestBody.model ?? 'unknown')
   const isStreaming = requestBody.stream === true
 
-  // 4. Forward to Vercel AI Gateway
   const gatewayKey = process.env.VERCEL_AI_GATEWAY_KEY
   if (!gatewayKey) {
     console.error('VERCEL_AI_GATEWAY_KEY not configured')
@@ -179,7 +161,6 @@ export async function POST(
   }
 
   if (!upstreamResponse.ok) {
-    // Pass through error responses from the gateway
     const errorBody = await upstreamResponse.text()
     return new NextResponse(errorBody, {
       status: upstreamResponse.status,
@@ -187,7 +168,6 @@ export async function POST(
     })
   }
 
-  // 5. Handle streaming vs non-streaming responses
   if (isStreaming && upstreamResponse.body) {
     return handleStreamingResponse(upstreamResponse, orgId, instanceId, model)
   } else {
@@ -204,7 +184,6 @@ async function handleNonStreamingResponse(
   const body = await upstreamResponse.json()
   const usage = parseUsageFromBody(body)
 
-  // Deduct credits in the background (don't delay the response)
   if (usage && (usage.inputTokens > 0 || usage.outputTokens > 0)) {
     const cost = calculateCost(model, usage.inputTokens, usage.outputTokens)
     deductAndMaybeTopUp(orgId, instanceId, model, usage.inputTokens, usage.outputTokens, cost)
@@ -234,7 +213,6 @@ function handleStreamingResponse(
       if (done) {
         controller.close()
 
-        // After stream ends, try to parse usage from accumulated text
         if (!usageFound) {
           usageFound = parseUsageFromSSEChunk(accumulatedText)
         }
@@ -246,17 +224,14 @@ function handleStreamingResponse(
         return
       }
 
-      // Pass through the chunk immediately
       controller.enqueue(value)
 
-      // Accumulate text for usage parsing (only keep last 4KB to limit memory)
       const chunk = decoder.decode(value, { stream: true })
       accumulatedText += chunk
       if (accumulatedText.length > 4096) {
         accumulatedText = accumulatedText.slice(-4096)
       }
 
-      // Try to parse usage as we go (some providers send it before [DONE])
       if (!usageFound) {
         usageFound = parseUsageFromSSEChunk(chunk)
       }
@@ -276,10 +251,6 @@ function handleStreamingResponse(
   })
 }
 
-/**
- * Deduct credits and trigger auto top-up if needed.
- * This runs asynchronously to avoid delaying the response.
- */
 function deductAndMaybeTopUp(
   orgId: string,
   instanceId: string,
@@ -290,7 +261,6 @@ function deductAndMaybeTopUp(
 ): void {
   deductCredits(orgId, cost, { instanceId, model, inputTokens, outputTokens })
     .then(({ newBalance }) => {
-      // Fire auto top-up check non-blocking
       maybeAutoTopUp(orgId, newBalance).catch((err) =>
         console.error(`Auto top-up error for org ${orgId}:`, err),
       )
