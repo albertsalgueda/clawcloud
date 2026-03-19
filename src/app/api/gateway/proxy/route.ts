@@ -81,12 +81,8 @@ function parseUsageFromSSEChunk(text: string): { inputTokens: number; outputToke
   return null
 }
 
-export async function POST(
-  request: NextRequest,
-  { params }: { params: Promise<{ path?: string[] }> },
-) {
-  const { path } = await params
-  const subPath = path?.join('/') ?? 'chat/completions'
+export async function POST(request: NextRequest) {
+  const subPath = request.nextUrl.searchParams.get('path') || 'chat/completions'
 
   const authHeader = request.headers.get('authorization')
   const token = authHeader?.startsWith('Bearer ')
