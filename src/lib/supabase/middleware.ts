@@ -35,7 +35,8 @@ export async function updateSession(request: NextRequest) {
 
   const isPublicRoute = request.nextUrl.pathname === '/' ||
     isAuthRoute ||
-    request.nextUrl.pathname.startsWith('/api/webhooks')
+    request.nextUrl.pathname.startsWith('/api/webhooks') ||
+    request.nextUrl.pathname.startsWith('/api/gateway/proxy')
 
   if (!user && !isPublicRoute) {
     const url = request.nextUrl.clone()
