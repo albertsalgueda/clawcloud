@@ -153,8 +153,8 @@ runcmd:
   # OpenClaw (native install as openclaw user)
   - su - openclaw -c 'curl -fsSL https://openclaw.ai/install.sh | bash'
 
-  # Add npm-global bin to openclaw PATH for interactive/login sessions
-  - su - openclaw -c 'echo "export PATH=\\$HOME/.npm-global/bin:\\$PATH" >> ~/.profile'
+  # Add npm-global bin to PATH for both login shells (.profile) and interactive shells (.bashrc)
+  - su - openclaw -c 'echo "export PATH=\\$HOME/.npm-global/bin:\\$PATH" >> ~/.profile && echo "export PATH=\\$HOME/.npm-global/bin:\\$PATH" >> ~/.bashrc'
 
   # Playwright browsers for agent browser automation
   - su - openclaw -c 'npx playwright install --with-deps chromium'
