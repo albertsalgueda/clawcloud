@@ -107,11 +107,19 @@ export async function POST(request: NextRequest) {
 
   const { instanceId, orgId } = resolved
 
-  const hasFunds = await checkSufficientBalance(orgId, 0.001)
-  if (!hasFunds) {
+  try {
+    const hasFunds = await checkSufficientBalance(orgId, 0.001)
+    if (!hasFunds) {
+      return NextResponse.json(
+        { error: 'Insufficient credit balance. Please add credits.' },
+        { status: 402 },
+      )
+    }
+  } catch (err) {
+    console.error('Credit check error:', err)
     return NextResponse.json(
-      { error: 'Insufficient credit balance. Please add credits.' },
-      { status: 402 },
+      { error: 'Billing service unavailable' },
+      { status: 503 },
     )
   }
 
