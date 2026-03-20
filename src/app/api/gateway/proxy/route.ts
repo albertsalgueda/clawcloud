@@ -1,7 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase/admin'
-import { deductCredits, checkSufficientBalance } from '@/lib/credits/balance'
-import { maybeAutoTopUp } from '@/lib/credits/auto-topup'
 import { TOKEN_PRICING_EUR, DEFAULT_TOKEN_PRICE_EUR } from '@/lib/constants'
 
 export const runtime = 'nodejs'
@@ -107,19 +105,16 @@ export async function POST(request: NextRequest) {
 
   const { instanceId, orgId } = resolved
 
-  try {
-    const hasFunds = await checkSufficientBalance(orgId, 0.001)
-    if (!hasFunds) {
-      return NextResponse.json(
-        { error: 'Insufficient credit balance. Please add credits.' },
-        { status: 402 },
-      )
-    }
-  } catch (err) {
-    console.error('Credit check error:', err)
+  const { data: org } = await supabaseAdmin
+    .from('organizations')
+    .select('credit_balance_eur')
+    .eq('id', orgId)
+    .single()
+
+  if (org && Number(org.credit_balance_eur) < 0.001) {
     return NextResponse.json(
-      { error: 'Billing service unavailable' },
-      { status: 503 },
+      { error: 'Insufficient credit balance. Please add credits.' },
+      { status: 402 },
     )
   }
 
@@ -256,21 +251,43 @@ function handleStreamingResponse(
   })
 }
 
-function deductAndMaybeTopUp(
+async function deductAndMaybeTopUp(
   orgId: string,
   instanceId: string,
   model: string,
   inputTokens: number,
   outputTokens: number,
   cost: number,
-): void {
-  deductCredits(orgId, cost, { instanceId, model, inputTokens, outputTokens })
-    .then(({ newBalance }) => {
-      maybeAutoTopUp(orgId, newBalance).catch((err) =>
-        console.error(`Auto top-up error for org ${orgId}:`, err),
-      )
-    })
-    .catch((err) => {
-      console.error(`Credit deduction failed for org ${orgId}:`, err)
-    })
+): Promise<void> {
+  try {
+    const { data: org } = await supabaseAdmin
+      .from('organizations')
+      .select('credit_balance_eur')
+      .eq('id', orgId)
+      .single()
+
+    if (!org) return
+
+    const newBalance = Number(org.credit_balance_eur) - cost
+
+    await supabaseAdmin
+      .from('organizations')
+      .update({ credit_balance_eur: newBalance.toFixed(6) })
+      .eq('id', orgId)
+
+    await supabaseAdmin
+      .from('credit_transactions')
+      .insert({
+        org_id: orgId,
+        instance_id: instanceId,
+        type: 'usage',
+        amount_eur: (-cost).toFixed(6),
+        balance_after_eur: newBalance.toFixed(6),
+        model,
+        input_tokens: inputTokens,
+        output_tokens: outputTokens,
+      })
+  } catch (err) {
+    console.error(`Credit deduction failed for org ${orgId}:`, err)
+  }
 }
