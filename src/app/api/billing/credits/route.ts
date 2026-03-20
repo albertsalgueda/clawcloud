@@ -24,7 +24,7 @@ export async function GET() {
     credit_balance_eur: orgData ? Number(orgData.credit_balance_eur) : 0,
     auto_topup_enabled: orgData?.auto_topup_enabled ?? true,
     auto_topup_amount_eur: orgData ? Number(orgData.auto_topup_amount_eur) : 20,
-    auto_topup_threshold_eur: orgData ? Number(orgData.auto_topup_threshold_eur) : 2,
+    auto_topup_threshold_eur: orgData ? Number(orgData.auto_topup_threshold_eur) : 5,
     auto_topup_failed: orgData?.auto_topup_failed ?? false,
     recent_transactions: transactions ?? [],
   })

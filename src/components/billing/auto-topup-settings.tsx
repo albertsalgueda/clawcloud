@@ -15,7 +15,6 @@ import {
 } from '@/components/ui/select'
 import { Badge } from '@/components/ui/badge'
 import { AlertTriangle, Loader2 } from 'lucide-react'
-import { BillingPortalButton } from '@/components/billing/billing-portal-button'
 import { AddCreditsButton } from '@/components/billing/add-credits-button'
 
 interface AutoTopupSettingsProps {
@@ -101,22 +100,12 @@ export function AutoTopupSettings({
         </div>
       </CardHeader>
       <CardContent className="space-y-5">
-        <div className="rounded-xl border border-border/70 bg-muted/30 p-4">
-          <p className="text-sm font-medium">
-            {enabled
-              ? `Currently adds ${formatCurrency(amountEur)} when balance drops below ${formatCurrency(thresholdEur)}.`
-              : 'Auto top-up is currently off.'}
-          </p>
-          <p className="mt-2 text-sm text-muted-foreground">
-            Set the refill amount and the low-balance trigger, then enable the setup. If a payment fails, update your card and save again to retry.
-          </p>
-          {failed && (
-            <div className="mt-3 flex items-center gap-2 rounded-lg bg-destructive/10 p-3 text-sm text-destructive">
-              <AlertTriangle className="h-4 w-4 shrink-0" />
-              Last auto top-up failed. Update your payment method, then save this setup again.
-            </div>
-          )}
-        </div>
+        {failed && (
+          <div className="flex items-center gap-2 rounded-lg bg-destructive/10 p-3 text-sm text-destructive">
+            <AlertTriangle className="h-4 w-4 shrink-0" />
+            Last auto top-up failed. Update your payment method and save again to retry.
+          </div>
+        )}
 
         <div className="grid gap-4 sm:grid-cols-2">
           <div className="space-y-2">
@@ -177,15 +166,6 @@ export function AutoTopupSettings({
           />
         </div>
 
-        <div className="rounded-xl border border-dashed border-border px-4 py-3">
-          <p className="text-sm font-medium">Need to update the card used for top-ups?</p>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Open the Stripe billing portal to change your default payment method or review invoices.
-          </p>
-          <div className="mt-3">
-            <BillingPortalButton />
-          </div>
-        </div>
       </CardContent>
     </Card>
   )

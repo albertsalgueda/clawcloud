@@ -68,9 +68,6 @@ export function CurrentSpend({
             <p className="mt-1 text-xl font-semibold">{formatCurrency(baseCost)}</p>
           </div>
         </div>
-        <p className="text-sm text-muted-foreground">
-          Credits cover AI usage. Compute and plan charges are shown separately so it is clear what is prepaid vs billed monthly.
-        </p>
       </CardContent>
     </Card>
   )

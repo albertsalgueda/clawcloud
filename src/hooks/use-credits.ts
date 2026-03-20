@@ -25,7 +25,7 @@ export function useCredits() {
   const { data, error, isLoading, mutate } = useSWR<CreditInfo>(
     '/api/billing/credits',
     fetcher,
-    { refreshInterval: 30_000 },
+    { revalidateOnFocus: false },
   )
 
   return {

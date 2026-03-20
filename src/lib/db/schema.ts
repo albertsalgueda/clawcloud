@@ -58,7 +58,7 @@ export const organizations = pgTable('organizations', {
   credit_balance_eur: numeric('credit_balance_eur', { precision: 10, scale: 6 }).notNull().default('0'),
   auto_topup_enabled: boolean('auto_topup_enabled').notNull().default(true),
   auto_topup_amount_eur: numeric('auto_topup_amount_eur', { precision: 10, scale: 2 }).notNull().default('20'),
-  auto_topup_threshold_eur: numeric('auto_topup_threshold_eur', { precision: 10, scale: 2 }).notNull().default('2'),
+  auto_topup_threshold_eur: numeric('auto_topup_threshold_eur', { precision: 10, scale: 2 }).notNull().default('5'),
   credit_limit_eur: numeric('credit_limit_eur', { precision: 10, scale: 2 }),
   auto_topup_failed: boolean('auto_topup_failed').notNull().default(false),
   created_at: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
