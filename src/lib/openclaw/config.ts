@@ -16,6 +16,9 @@ export interface OpenClawConfig {
       model: { primary: string }
     }
   }
+  models: {
+    providers: Record<string, { baseUrl: string }>
+  }
 }
 
 const DEFAULT_MODEL = 'vercel-ai-gateway/anthropic/claude-sonnet-4.5'
@@ -29,10 +32,12 @@ interface ConfigParams {
 /**
  * Generate the OpenClaw configuration for a VPS instance.
  *
- * Uses the built-in vercel-ai-gateway provider. The API key and base URL
- * are set via environment variables (AI_GATEWAY_API_KEY, AI_GATEWAY_BASE_URL)
- * in ~/.openclaw/.env, not in this config file. OpenClaw auto-discovers
- * all available models from the gateway.
+ * Uses the built-in vercel-ai-gateway provider for model discovery and catalog.
+ * Overrides its baseUrl to route LLM requests through our metering proxy.
+ * AI_GATEWAY_API_KEY is set in ~/.openclaw/.env (not in this config).
+ *
+ * The built-in provider uses api: "anthropic-messages", so pi-ai appends
+ * /v1/messages to the baseUrl. The proxy baseUrl must NOT end with /v1.
  */
 export function generateOpenClawConfig(
   _instance: Instance,
@@ -53,6 +58,13 @@ export function generateOpenClawConfig(
       defaults: {
         model: {
           primary: DEFAULT_MODEL,
+        },
+      },
+    },
+    models: {
+      providers: {
+        'vercel-ai-gateway': {
+          baseUrl: params.proxyBaseUrl,
         },
       },
     },

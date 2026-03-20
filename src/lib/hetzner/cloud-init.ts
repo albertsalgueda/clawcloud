@@ -16,7 +16,6 @@ function b64(text: string): string {
 
 function buildOpenClawEnv(params: CloudInitParams): string {
   return `AI_GATEWAY_API_KEY=${params.gatewayToken}
-AI_GATEWAY_BASE_URL=${params.proxyBaseUrl}
 `
 }
 

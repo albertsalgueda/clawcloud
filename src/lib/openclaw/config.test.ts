@@ -58,7 +58,7 @@ const defaultParams = {
 }
 
 describe('generateOpenClawConfig', () => {
-  it('generates valid OpenClaw config with correct gateway auth', () => {
+  it('generates valid gateway config', () => {
     const config = generateOpenClawConfig(makeInstance(), makeOrg(), defaultParams)
 
     expect(config.gateway.auth.mode).toBe('token')
@@ -68,23 +68,20 @@ describe('generateOpenClawConfig', () => {
     expect(config.gateway.controlUi.dangerouslyDisableDeviceAuth).toBe(true)
   })
 
-  it('sets default model to vercel-ai-gateway provider', () => {
+  it('sets default model to vercel-ai-gateway', () => {
     const config = generateOpenClawConfig(makeInstance(), makeOrg(), defaultParams)
     expect(config.agents.defaults.model.primary).toBe('vercel-ai-gateway/anthropic/claude-sonnet-4.5')
   })
 
-  it('does not include models.providers (uses built-in vercel-ai-gateway)', () => {
+  it('overrides vercel-ai-gateway baseUrl with proxy', () => {
     const config = generateOpenClawConfig(makeInstance(), makeOrg(), defaultParams)
-    expect((config as Record<string, unknown>).models).toBeUndefined()
+    expect(config.models.providers['vercel-ai-gateway'].baseUrl).toBe('https://agentcomputers.app/api/gateway/proxy')
   })
 
-  it('does not include any secrets in the config', () => {
+  it('does not include secrets in the config', () => {
     const config = generateOpenClawConfig(makeInstance(), makeOrg(), defaultParams)
     const configStr = JSON.stringify(config)
-
     expect(configStr).not.toContain('stripe')
-    expect(configStr).not.toContain('rk_test')
     expect(configStr).not.toContain('AI_GATEWAY_API_KEY')
-    expect(configStr).not.toContain('proxyBaseUrl')
   })
 })

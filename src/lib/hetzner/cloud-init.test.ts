@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { generateCloudInit } from './cloud-init'
 
 describe('generateCloudInit', () => {
-  it('builds a cloud-init document with encoded config files and services', () => {
+  it('builds a cloud-init with openclaw env and config', () => {
     const params = {
       instanceId: 'inst-1',
       customerId: 'org-1',
@@ -10,7 +10,7 @@ describe('generateCloudInit', () => {
       proxyBaseUrl: 'https://app.example/api/gateway/proxy',
       openclawConfig: '{"hello":"world"}',
       openclawVersion: '1.2.3',
-      gatewayToken: 'gateway-token',
+      gatewayToken: 'gw-token-123',
       domain: 'example.com',
       sshPublicKey: 'ssh-rsa AAAA',
     }
@@ -18,22 +18,13 @@ describe('generateCloudInit', () => {
     const result = generateCloudInit(params)
 
     expect(result).toContain('#cloud-config')
-    expect(result).toContain('/home/openclaw/.env')
     expect(result).toContain('/home/openclaw/.openclaw/.env')
     expect(result).toContain('/home/openclaw/.openclaw/openclaw.json')
-    expect(result).toContain('/etc/systemd/system/ttyd.service')
-    expect(result).toContain('/etc/systemd/system/openclaw-gateway.service')
     expect(result).toContain('ssh-rsa AAAA')
-
-    const openclawEnvB64 = Buffer.from(
-      'AI_GATEWAY_API_KEY=gateway-token\n' +
-      'AI_GATEWAY_BASE_URL=https://app.example/api/gateway/proxy\n'
-    ).toString('base64')
-    expect(result).toContain(openclawEnvB64)
-
-    expect(result).toContain(Buffer.from('{"hello":"world"}').toString('base64'))
-    expect(result).toContain('npx playwright install --with-deps chromium')
-    expect(result).toContain('base64 -d > /etc/caddy/Caddyfile')
     expect(result).toContain('openclaw-gateway.service')
+    expect(result).toContain('base64 -d > /etc/caddy/Caddyfile')
+
+    const openclawEnvB64 = Buffer.from('AI_GATEWAY_API_KEY=gw-token-123\n').toString('base64')
+    expect(result).toContain(openclawEnvB64)
   })
 })

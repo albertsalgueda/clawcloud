@@ -7,7 +7,7 @@ import { TOKEN_PRICING_EUR, DEFAULT_TOKEN_PRICE_EUR } from '@/lib/constants'
 export const runtime = 'nodejs'
 export const maxDuration = 300
 
-const AI_GATEWAY_URL = 'https://ai-gateway.vercel.sh/v1'
+const AI_GATEWAY_URL = 'https://ai-gateway.vercel.sh'
 
 const tokenCache = new Map<string, { instanceId: string; orgId: string; expiresAt: number }>()
 const TOKEN_CACHE_TTL_MS = 60_000
