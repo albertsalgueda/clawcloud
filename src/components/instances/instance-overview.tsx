@@ -25,9 +25,11 @@ function ProvisioningProgress({ instance, healthStatus }: { instance: Instance; 
   const completedCount = steps.filter(s => s.done).length
   const currentIdx = steps.findIndex(s => !s.done)
 
-  const [now, setNow] = useState(Date.now())
+  const [now, setNow] = useState(() => new Date(instance.created_at).getTime())
   useEffect(() => {
-    const id = setInterval(() => setNow(Date.now()), 1000)
+    const updateNow = () => setNow(Date.now())
+    updateNow()
+    const id = setInterval(updateNow, 1000)
     return () => clearInterval(id)
   }, [])
   const elapsed = Math.floor((now - new Date(instance.created_at).getTime()) / 1000)

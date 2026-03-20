@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { useRouter, useParams } from 'next/navigation'
+import { useParams } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -13,7 +13,6 @@ import { toast } from 'sonner'
 import { Loader2, Cpu, MemoryStick, Check } from 'lucide-react'
 
 export function CreateInstanceForm() {
-  const router = useRouter()
   const params = useParams<{ orgSlug: string }>()
   const [name, setName] = useState('')
   const [plan, setPlan] = useState<InstancePlan>('starter')
