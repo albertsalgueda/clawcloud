@@ -79,6 +79,14 @@ export async function PATCH(req: Request) {
   if (parsed.data.auto_topup_threshold_eur !== undefined) {
     updates.auto_topup_threshold_eur = String(parsed.data.auto_topup_threshold_eur)
   }
+  if (
+    parsed.data.auto_topup_enabled !== undefined ||
+    parsed.data.auto_topup_amount_eur !== undefined ||
+    parsed.data.auto_topup_threshold_eur !== undefined
+  ) {
+    // Let the org retry auto top-up after they update settings or fix their card in Stripe.
+    updates.auto_topup_failed = false
+  }
 
   if (Object.keys(updates).length > 0) {
     await supabaseAdmin

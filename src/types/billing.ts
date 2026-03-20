@@ -4,6 +4,7 @@ export interface UsageSummary {
   token_cost: number
   total_cost: number
   by_model: UsageByModel[]
+  by_instance: InstanceUsage[]
   daily: DailyUsage[]
 }
 
@@ -17,6 +18,18 @@ export interface UsageByModel {
 export interface DailyUsage {
   date: string
   cost: number
+  input_tokens: number
+  output_tokens: number
+  requests: number
+}
+
+export interface InstanceUsage {
+  instance_id: string | null
+  instance_name: string
+  cost: number
+  input_tokens: number
+  output_tokens: number
+  requests: number
 }
 
 export interface PlanInfo {

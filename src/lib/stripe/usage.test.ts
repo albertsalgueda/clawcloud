@@ -13,14 +13,19 @@ vi.mock('@/lib/db', () => ({
 }))
 
 vi.mock('@/lib/db/schema', () => ({
-  usageEvents: {
+  creditTransactions: {
     org_id: 'org_id',
+    type: 'type',
     created_at: 'created_at',
     instance_id: 'instance_id',
     model: 'model',
     input_tokens: 'input_tokens',
     output_tokens: 'output_tokens',
-    billed_usd: 'billed_usd',
+    amount_eur: 'amount_eur',
+  },
+  instances: {
+    id: 'instance_id_ref',
+    name: 'instance_name',
   },
 }))
 
@@ -37,6 +42,7 @@ import { getOrgUsageSummary } from './usage'
 function queryResult<T>(result: T) {
   const chain: Record<string, unknown> = {}
   chain.from = vi.fn(() => chain)
+  chain.leftJoin = vi.fn(() => chain)
   chain.where = vi.fn(() => chain)
   chain.groupBy = vi.fn(() => chain)
   chain.orderBy = vi.fn(() => chain)
@@ -61,13 +67,26 @@ describe('getOrgUsageSummary', () => {
       ]))
       .mockReturnValueOnce(queryResult([
         {
-          date: '2026-03-17',
+          instance_id: 'inst-1',
+          instance_name: 'Alpha',
+          input_tokens: '100',
+          output_tokens: '50',
+          requests: '2',
           cost: '1.25',
         },
       ]))
+      .mockReturnValueOnce(queryResult([
+        {
+          date: '2026-03-17',
+          cost: '1.25',
+          input_tokens: '100',
+          output_tokens: '50',
+          requests: '2',
+        },
+      ]))
 
-    const start = new Date('2026-03-01T00:00:00Z')
-    const end = new Date('2026-03-31T23:59:59Z')
+    const start = new Date(2026, 2, 17, 0, 0, 0)
+    const end = new Date(2026, 2, 17, 23, 59, 59)
 
     await expect(getOrgUsageSummary('org-1', start, end)).resolves.toEqual({
       period: { start, end },
@@ -82,16 +101,30 @@ describe('getOrgUsageSummary', () => {
           cost: 1.25,
         },
       ],
+      by_instance: [
+        {
+          instance_id: 'inst-1',
+          instance_name: 'Alpha',
+          input_tokens: 100,
+          output_tokens: 50,
+          requests: 2,
+          cost: 1.25,
+        },
+      ],
       daily: [
         {
           date: '2026-03-17',
           cost: 1.25,
+          input_tokens: 100,
+          output_tokens: 50,
+          requests: 2,
         },
       ],
     })
 
     expect(mockAnd).toHaveBeenCalledWith(
       expect.objectContaining({ type: 'eq', field: 'org_id', value: 'org-1' }),
+      expect.objectContaining({ type: 'eq', field: 'type', value: 'usage' }),
       expect.objectContaining({ type: 'gte', field: 'created_at', value: start }),
       expect.objectContaining({ type: 'lte', field: 'created_at', value: end })
     )
@@ -109,6 +142,7 @@ describe('getOrgUsageSummary', () => {
 
     expect(mockAnd).toHaveBeenCalledWith(
       expect.objectContaining({ type: 'eq', field: 'org_id', value: 'org-1' }),
+      expect.objectContaining({ type: 'eq', field: 'type', value: 'usage' }),
       expect.objectContaining({ type: 'gte', field: 'created_at' }),
       expect.objectContaining({ type: 'lte', field: 'created_at' }),
       expect.objectContaining({ type: 'eq', field: 'instance_id', value: 'inst-1' })
