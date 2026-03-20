@@ -80,7 +80,7 @@ export function Sidebar({ currentOrgSlug }: { currentOrgSlug: string }) {
         </nav>
         <div className="mt-auto border-t border-border pt-3">
           <a
-            href="https://docs.clawcloud.dev"
+            href="https://docs.agentcomputers.app"
             target="_blank"
             rel="noopener noreferrer"
             className={cn(

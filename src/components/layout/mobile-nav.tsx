@@ -64,7 +64,7 @@ export function MobileNav({ currentOrgSlug }: { currentOrgSlug: string }) {
           </nav>
           <div className="mt-auto border-t border-border pt-3">
             <a
-              href="https://docs.clawcloud.dev"
+              href="https://docs.agentcomputers.app"
               target="_blank"
               rel="noopener noreferrer"
               className="flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"

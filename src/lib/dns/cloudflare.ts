@@ -14,7 +14,7 @@ export async function createDnsRecord(
   const config = getConfig()
   if (!config) return { success: false }
 
-  const domain = process.env.INSTANCE_DOMAIN ?? 'clawcloud.dev'
+  const domain = process.env.INSTANCE_DOMAIN ?? 'agentcomputers.app'
   const name = `${subdomain}.${domain}`
 
   const res = await fetch(`${CF_API}/zones/${config.zoneId}/dns_records`, {

@@ -8,7 +8,7 @@ import { PLANS, REGIONS } from '@/lib/constants'
 import type { Instance } from '@/types/instance'
 import type { Organization } from '@/lib/auth'
 
-const INSTANCE_DOMAIN = process.env.INSTANCE_DOMAIN ?? 'clawcloud.dev'
+const INSTANCE_DOMAIN = process.env.INSTANCE_DOMAIN ?? 'agentcomputers.app'
 
 export async function provisionInstance(
   instance: Instance,
@@ -19,7 +19,7 @@ export async function provisionInstance(
   const gatewayToken = crypto.randomBytes(32).toString('hex')
   const dashboardUrl = `https://${instance.slug}.${INSTANCE_DOMAIN}`
 
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'https://clawcloud.dev'
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'https://agentcomputers.app'
   const proxyBaseUrl = `${appUrl}/api/gateway/proxy`
 
   const openclawConfig = generateOpenClawConfig(instance, org, {
