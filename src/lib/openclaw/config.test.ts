@@ -70,7 +70,7 @@ describe('generateOpenClawConfig', () => {
 
   it('sets default model to vercel-ai-gateway provider', () => {
     const config = generateOpenClawConfig(makeInstance(), makeOrg(), defaultParams)
-    expect(config.agents.defaults.model.primary).toBe('vercel-ai-gateway/anthropic/claude-sonnet-4-5')
+    expect(config.agents.defaults.model.primary).toBe('vercel-ai-gateway/anthropic/claude-sonnet-4.5')
   })
 
   it('does not include models.providers (uses built-in vercel-ai-gateway)', () => {

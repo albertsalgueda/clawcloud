@@ -18,7 +18,7 @@ export interface OpenClawConfig {
   }
 }
 
-const DEFAULT_MODEL = 'vercel-ai-gateway/anthropic/claude-sonnet-4-5'
+const DEFAULT_MODEL = 'vercel-ai-gateway/anthropic/claude-sonnet-4.5'
 
 interface ConfigParams {
   gatewayToken: string
