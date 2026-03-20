@@ -1,6 +1,5 @@
 import { NextResponse } from 'next/server'
 import { requireAuth, requireOrgRole } from '@/lib/auth'
-import { getBalance } from '@/lib/credits/balance'
 import { manualTopUp } from '@/lib/credits/auto-topup'
 import { supabaseAdmin } from '@/lib/supabase/admin'
 import { z } from 'zod'
@@ -8,9 +7,14 @@ import { z } from 'zod'
 export async function GET() {
   const { org } = await requireAuth()
 
-  const balance = await getBalance(org.id)
+  const { data: orgData } = await supabaseAdmin
+    .from('organizations')
+    .select('credit_balance_eur')
+    .eq('id', org.id)
+    .single()
 
-  // Fetch recent transactions
+  const balance = orgData ? Number(orgData.credit_balance_eur) : 0
+
   const { data: transactions } = await supabaseAdmin
     .from('credit_transactions')
     .select('id, type, amount_eur, balance_after_eur, model, description, created_at')
