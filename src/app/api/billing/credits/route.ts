@@ -9,11 +9,9 @@ export async function GET() {
 
   const { data: orgData } = await supabaseAdmin
     .from('organizations')
-    .select('credit_balance_eur')
+    .select('credit_balance_eur, auto_topup_enabled, auto_topup_amount_eur, auto_topup_threshold_eur, auto_topup_failed')
     .eq('id', org.id)
     .single()
-
-  const balance = orgData ? Number(orgData.credit_balance_eur) : 0
 
   const { data: transactions } = await supabaseAdmin
     .from('credit_transactions')
@@ -23,11 +21,11 @@ export async function GET() {
     .limit(20)
 
   return NextResponse.json({
-    credit_balance_eur: balance,
-    auto_topup_enabled: org.auto_topup_enabled,
-    auto_topup_amount_eur: Number(org.auto_topup_amount_eur),
-    auto_topup_threshold_eur: Number(org.auto_topup_threshold_eur),
-    auto_topup_failed: org.auto_topup_failed,
+    credit_balance_eur: orgData ? Number(orgData.credit_balance_eur) : 0,
+    auto_topup_enabled: orgData?.auto_topup_enabled ?? true,
+    auto_topup_amount_eur: orgData ? Number(orgData.auto_topup_amount_eur) : 20,
+    auto_topup_threshold_eur: orgData ? Number(orgData.auto_topup_threshold_eur) : 2,
+    auto_topup_failed: orgData?.auto_topup_failed ?? false,
     recent_transactions: transactions ?? [],
   })
 }
