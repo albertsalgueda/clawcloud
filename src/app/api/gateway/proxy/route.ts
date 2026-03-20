@@ -85,13 +85,14 @@ export async function POST(request: NextRequest) {
   const subPath = request.nextUrl.searchParams.get('path') || 'chat/completions'
 
   const authHeader = request.headers.get('authorization')
+  const xApiKey = request.headers.get('x-api-key')
   const token = authHeader?.startsWith('Bearer ')
     ? authHeader.slice(7)
-    : null
+    : xApiKey ?? null
 
   if (!token) {
     return NextResponse.json(
-      { error: 'Missing Authorization header' },
+      { error: 'Missing authorization' },
       { status: 401 },
     )
   }
