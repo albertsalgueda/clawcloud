@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { after } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase/admin'
 import { TOKEN_PRICING_EUR, DEFAULT_TOKEN_PRICE_EUR } from '@/lib/constants'
 
@@ -186,7 +187,7 @@ async function handleNonStreamingResponse(
 
   if (usage && (usage.inputTokens > 0 || usage.outputTokens > 0)) {
     const cost = calculateCost(model, usage.inputTokens, usage.outputTokens)
-    deductAndMaybeTopUp(orgId, instanceId, model, usage.inputTokens, usage.outputTokens, cost)
+    after(() => deductAndMaybeTopUp(orgId, instanceId, model, usage.inputTokens, usage.outputTokens, cost))
   }
 
   return NextResponse.json(body, {
@@ -219,7 +220,7 @@ function handleStreamingResponse(
 
         if (usageFound && (usageFound.inputTokens > 0 || usageFound.outputTokens > 0)) {
           const cost = calculateCost(model, usageFound.inputTokens, usageFound.outputTokens)
-          deductAndMaybeTopUp(orgId, instanceId, model, usageFound.inputTokens, usageFound.outputTokens, cost)
+          after(() => deductAndMaybeTopUp(orgId, instanceId, model, usageFound!.inputTokens, usageFound!.outputTokens, cost))
         }
         return
       }
