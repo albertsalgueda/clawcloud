@@ -17,7 +17,7 @@ export interface OpenClawConfig {
     }
   }
   models: {
-    providers: Record<string, { baseUrl: string }>
+    providers: Record<string, { baseUrl: string; models: never[] }>
   }
 }
 
@@ -65,6 +65,7 @@ export function generateOpenClawConfig(
       providers: {
         'vercel-ai-gateway': {
           baseUrl: params.proxyBaseUrl,
+          models: [],
         },
       },
     },
