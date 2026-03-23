@@ -9,8 +9,8 @@ describe('getInstanceTerminalConnection', () => {
         ip_address: '203.0.113.10',
       }),
     ).toEqual({
-      preferredUrl: 'https://demo.example.com/terminal',
-      proxiedUrl: 'https://demo.example.com/terminal',
+      preferredUrl: 'https://demo.example.com/terminal/',
+      proxiedUrl: 'https://demo.example.com/terminal/',
       directUrl: 'http://203.0.113.10:7681',
       mode: 'proxied',
     })

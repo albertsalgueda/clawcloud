@@ -13,6 +13,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
+import { Skeleton } from '@/components/ui/skeleton'
 import { InstanceActions } from './instance-actions'
 import { InstanceStatusBadge } from './instance-status'
 import { PLANS, REGIONS } from '@/lib/constants'
@@ -257,13 +258,16 @@ export function InstanceOverview({ instance: initialInstance }: { instance: Inst
 
   const shouldPollHealth = instance.status === 'running' || instance.status === 'provisioning'
   const healthInterval = instance.status === 'provisioning' ? 10000 : 30000
-  const { data: healthData } = usePolling<{ health: HealthStatus; status?: string }>(
+  const { data: healthData, isLoading: healthLoading } = usePolling<{ health: HealthStatus; status?: string }>(
     shouldPollHealth && instance.ip_address ? `/api/health/${instance.id}` : null,
     healthInterval
   )
 
-  const { data: metricsData } = usePolling<{ metrics: InstanceRealtimeMetrics | null }>(
-    instance.status === 'running' && instance.hetzner_server_id ? `/api/instances/${instance.id}/metrics` : null,
+  const metricsUrl = instance.status === 'running' && instance.hetzner_server_id
+    ? `/api/instances/${instance.id}/metrics`
+    : null
+  const { data: metricsData, isLoading: metricsLoading } = usePolling<{ metrics: InstanceRealtimeMetrics | null }>(
+    metricsUrl,
     30000
   )
 
@@ -365,11 +369,13 @@ export function InstanceOverview({ instance: initialInstance }: { instance: Inst
           </CardHeader>
           <CardContent>
             <InstanceStatusBadge status={instance.status} />
-            {healthData?.health && (
+            {healthLoading && !healthData ? (
+              <Skeleton className="mt-2 h-3.5 w-32" />
+            ) : healthData?.health ? (
               <p className="mt-2 text-xs text-muted-foreground">
                 Health: {healthData.health.status} ({healthData.health.latency_ms}ms)
               </p>
-            )}
+            ) : null}
           </CardContent>
         </Card>
 
@@ -426,84 +432,118 @@ export function InstanceOverview({ instance: initialInstance }: { instance: Inst
         </Card>
       </div>
 
-      {metricsData?.metrics && (
+      {metricsUrl && (
         <section className="space-y-4">
           <div className="flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
             <div>
               <h2 className="text-lg font-semibold tracking-tight">Live Hetzner metrics</h2>
-              <p className="text-sm text-muted-foreground">
-                Last {metricsData.metrics.range_minutes} minutes, refreshed every 30 seconds.
-              </p>
+              {metricsData?.metrics ? (
+                <p className="text-sm text-muted-foreground">
+                  Last {metricsData.metrics.range_minutes} minutes, refreshed every 30 seconds.
+                </p>
+              ) : (
+                <Skeleton className="mt-1 h-4 w-56" />
+              )}
             </div>
-            <p className="text-xs text-muted-foreground">
-              Updated {formatMetricTime(metricsData.metrics.updated_at)}
-            </p>
+            {metricsData?.metrics ? (
+              <p className="text-xs text-muted-foreground">
+                Updated {formatMetricTime(metricsData.metrics.updated_at)}
+              </p>
+            ) : (
+              <Skeleton className="h-3.5 w-28" />
+            )}
           </div>
 
-          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-            <LiveMetricCard
-              title="CPU usage"
-              icon={<Activity className="h-4 w-4" />}
-              metric={metricsData.metrics.cpu}
-              valueFormatter={formatCpuPercent}
-              detail="Current and trailing average from Hetzner's server metrics API."
-            />
-            <LiveMetricCard
-              title="Network ingress"
-              icon={<ArrowDownLeft className="h-4 w-4" />}
-              metric={metricsData.metrics.network.inbound}
-              valueFormatter={formatBytesRate}
-              detail="Inbound bandwidth across the last hour."
-            />
-            <LiveMetricCard
-              title="Network egress"
-              icon={<ArrowUpRight className="h-4 w-4" />}
-              metric={metricsData.metrics.network.outbound}
-              valueFormatter={formatBytesRate}
-              detail="Outbound bandwidth across the last hour."
-            />
-            <Card className="border-border/70 bg-card/80">
-              <CardHeader className="space-y-3 pb-2">
-                <div className="flex items-start justify-between gap-4">
-                  <div>
-                    <CardTitle className="text-sm font-medium text-muted-foreground">Disk activity</CardTitle>
-                    <p className="mt-2 text-2xl font-semibold tracking-tight">
-                      {formatIops(metricsData.metrics.disk.write_iops.current)}
-                    </p>
-                  </div>
-                  <div className="rounded-xl border border-border/60 bg-muted/30 p-2 text-muted-foreground">
-                    <HardDriveUpload className="h-4 w-4" />
-                  </div>
-                </div>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="text-primary">
-                  <MetricSparkline series={metricsData.metrics.disk.write_iops.series} />
-                </div>
-                <div className="grid gap-3 text-xs text-muted-foreground sm:grid-cols-2">
-                  <div className="rounded-xl border border-border/60 bg-muted/20 p-3">
-                    <div className="mb-1 flex items-center gap-1.5 text-foreground">
-                      <HardDriveDownload className="h-3.5 w-3.5" />
-                      Read bandwidth
+          {metricsLoading && !metricsData ? (
+            <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+              {Array.from({ length: 4 }).map((_, i) => (
+                <Card key={i} className="border-border/70 bg-card/80">
+                  <CardHeader className="space-y-3 pb-2">
+                    <div className="flex items-start justify-between gap-4">
+                      <div className="flex-1 space-y-2">
+                        <Skeleton className="h-4 w-24" />
+                        <Skeleton className="h-7 w-20" />
+                      </div>
+                      <Skeleton className="h-9 w-9 rounded-xl" />
                     </div>
-                    <p>{formatBytesRate(metricsData.metrics.disk.read_bandwidth.current)}</p>
-                    <p>Peak {formatBytesRate(metricsData.metrics.disk.read_bandwidth.peak)}</p>
-                  </div>
-                  <div className="rounded-xl border border-border/60 bg-muted/20 p-3">
-                    <div className="mb-1 flex items-center gap-1.5 text-foreground">
-                      <HardDriveUpload className="h-3.5 w-3.5" />
-                      Write bandwidth
+                  </CardHeader>
+                  <CardContent className="space-y-3">
+                    <Skeleton className="h-14 w-full" />
+                    <div className="flex justify-between">
+                      <Skeleton className="h-3 w-16" />
+                      <Skeleton className="h-3 w-16" />
                     </div>
-                    <p>{formatBytesRate(metricsData.metrics.disk.write_bandwidth.current)}</p>
-                    <p>Peak {formatBytesRate(metricsData.metrics.disk.write_bandwidth.peak)}</p>
+                    <Skeleton className="h-3 w-full" />
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          ) : metricsData?.metrics ? (
+            <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+              <LiveMetricCard
+                title="CPU usage"
+                icon={<Activity className="h-4 w-4" />}
+                metric={metricsData.metrics.cpu}
+                valueFormatter={formatCpuPercent}
+                detail="Current and trailing average from Hetzner's server metrics API."
+              />
+              <LiveMetricCard
+                title="Network ingress"
+                icon={<ArrowDownLeft className="h-4 w-4" />}
+                metric={metricsData.metrics.network.inbound}
+                valueFormatter={formatBytesRate}
+                detail="Inbound bandwidth across the last hour."
+              />
+              <LiveMetricCard
+                title="Network egress"
+                icon={<ArrowUpRight className="h-4 w-4" />}
+                metric={metricsData.metrics.network.outbound}
+                valueFormatter={formatBytesRate}
+                detail="Outbound bandwidth across the last hour."
+              />
+              <Card className="border-border/70 bg-card/80">
+                <CardHeader className="space-y-3 pb-2">
+                  <div className="flex items-start justify-between gap-4">
+                    <div>
+                      <CardTitle className="text-sm font-medium text-muted-foreground">Disk activity</CardTitle>
+                      <p className="mt-2 text-2xl font-semibold tracking-tight">
+                        {formatIops(metricsData.metrics.disk.write_iops.current)}
+                      </p>
+                    </div>
+                    <div className="rounded-xl border border-border/60 bg-muted/30 p-2 text-muted-foreground">
+                      <HardDriveUpload className="h-4 w-4" />
+                    </div>
                   </div>
-                </div>
-                <p className="text-xs text-muted-foreground">
-                  Read IOPS {formatIops(metricsData.metrics.disk.read_iops.current)}. Peak write IOPS {formatIops(metricsData.metrics.disk.write_iops.peak)}.
-                </p>
-              </CardContent>
-            </Card>
-          </div>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="text-primary">
+                    <MetricSparkline series={metricsData.metrics.disk.write_iops.series} />
+                  </div>
+                  <div className="grid gap-3 text-xs text-muted-foreground sm:grid-cols-2">
+                    <div className="rounded-xl border border-border/60 bg-muted/20 p-3">
+                      <div className="mb-1 flex items-center gap-1.5 text-foreground">
+                        <HardDriveDownload className="h-3.5 w-3.5" />
+                        Read bandwidth
+                      </div>
+                      <p>{formatBytesRate(metricsData.metrics.disk.read_bandwidth.current)}</p>
+                      <p>Peak {formatBytesRate(metricsData.metrics.disk.read_bandwidth.peak)}</p>
+                    </div>
+                    <div className="rounded-xl border border-border/60 bg-muted/20 p-3">
+                      <div className="mb-1 flex items-center gap-1.5 text-foreground">
+                        <HardDriveUpload className="h-3.5 w-3.5" />
+                        Write bandwidth
+                      </div>
+                      <p>{formatBytesRate(metricsData.metrics.disk.write_bandwidth.current)}</p>
+                      <p>Peak {formatBytesRate(metricsData.metrics.disk.write_bandwidth.peak)}</p>
+                    </div>
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Read IOPS {formatIops(metricsData.metrics.disk.read_iops.current)}. Peak write IOPS {formatIops(metricsData.metrics.disk.write_iops.peak)}.
+                  </p>
+                </CardContent>
+              </Card>
+            </div>
+          ) : null}
         </section>
       )}
     </div>

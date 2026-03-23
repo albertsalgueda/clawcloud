@@ -194,7 +194,8 @@ export function InstanceTerminalWorkspace({
                 key={`${session.id}:${session.version}`}
                 src={terminalUrl}
                 title={session.title}
-                className="block h-full w-full bg-transparent"
+                className="block h-full w-full"
+                style={{ colorScheme: 'dark', background: '#0a0a0a' }}
                 allow="clipboard-read; clipboard-write; fullscreen"
                 onLoad={() => setLoadedSessions((prev) => ({ ...prev, [session.id]: true }))}
               />

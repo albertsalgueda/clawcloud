@@ -21,7 +21,7 @@ export function getInstanceTerminalConnection(
   instance: TerminalInstance,
 ): TerminalConnection {
   const proxiedUrl = instance.dashboard_url
-    ? `${trimTrailingSlashes(instance.dashboard_url)}/terminal`
+    ? `${trimTrailingSlashes(instance.dashboard_url)}/terminal/`
     : null
 
   const directUrl = instance.ip_address

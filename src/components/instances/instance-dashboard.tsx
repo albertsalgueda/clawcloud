@@ -53,7 +53,8 @@ export function InstanceDashboard({ instance }: { instance: Instance }) {
         )}
         <iframe
           src={dashboardUrl}
-          className="h-[calc(100dvh-14rem)] w-full bg-background"
+          className="h-[calc(100dvh-14rem)] w-full"
+          style={{ colorScheme: 'dark', background: 'var(--background, #0a0a0a)' }}
           title="OpenClaw Dashboard"
           allow="clipboard-read; clipboard-write"
           onLoad={() => setLoaded(true)}
