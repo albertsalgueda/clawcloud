@@ -4,6 +4,13 @@ import { supabaseAdmin } from '@/lib/supabase/admin'
 import { cancelSubscription } from '@/lib/stripe/subscriptions'
 import { deleteServer } from '@/lib/hetzner/servers'
 import { logInstanceEvent } from '@/lib/control-plane'
+import { z } from 'zod'
+
+const updateInstanceSchema = z.object({
+  name: z.string().trim().min(2).max(50).regex(/^[a-zA-Z0-9\s-]+$/).optional(),
+  config: z.record(z.string(), z.unknown()).optional(),
+  env_vars: z.record(z.string(), z.string()).optional(),
+})
 
 export async function GET(
   _req: Request,
@@ -37,6 +44,16 @@ export async function PATCH(
   const { instanceId } = await params
   const { org, membership } = await requireAuth()
   const body = await req.json()
+  const parsed = updateInstanceSchema.safeParse(body)
+
+  if (!parsed.success) {
+    const fieldErrors = parsed.error.flatten().fieldErrors
+    const msg = Object.entries(fieldErrors)
+      .map(([key, value]) => `${key}: ${(value as string[]).join(', ')}`)
+      .join('; ')
+
+    return NextResponse.json({ error: msg || 'Invalid input' }, { status: 400 })
+  }
 
   const { data: existing } = await supabaseAdmin
     .from('instances')
@@ -54,9 +71,13 @@ export async function PATCH(
   }
 
   const updates: Record<string, unknown> = {}
-  if (body.name) updates.name = body.name
-  if (body.config) updates.config = body.config
-  if (body.env_vars) updates.env_vars = body.env_vars
+  if (parsed.data.name !== undefined) updates.name = parsed.data.name
+  if (parsed.data.config !== undefined) updates.config = parsed.data.config
+  if (parsed.data.env_vars !== undefined) updates.env_vars = parsed.data.env_vars
+
+  if (Object.keys(updates).length === 0) {
+    return NextResponse.json({ error: 'No updates provided' }, { status: 400 })
+  }
 
   const { data: instance, error } = await supabaseAdmin
     .from('instances')

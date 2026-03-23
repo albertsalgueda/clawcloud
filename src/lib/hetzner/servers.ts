@@ -1,5 +1,5 @@
 import { hetznerFetch } from './client'
-import type { HetznerServer } from './types'
+import type { HetznerMetricType, HetznerMetricsResponse, HetznerServer } from './types'
 import { HetznerApiError } from './types'
 
 interface CreateServerParams {
@@ -55,6 +55,24 @@ export async function deleteServer(serverId: number): Promise<void> {
 export async function getServer(serverId: number): Promise<HetznerServer> {
   return hetznerFetch<{ server: HetznerServer }>(`/servers/${serverId}`)
     .then(r => r.server)
+}
+
+export async function getServerMetrics(
+  serverId: number,
+  type: HetznerMetricType,
+  start: string,
+  end: string,
+  step = 60
+): Promise<HetznerMetricsResponse['metrics']> {
+  const params = new URLSearchParams({
+    type,
+    start,
+    end,
+    step: String(step),
+  })
+
+  return hetznerFetch<HetznerMetricsResponse>(`/servers/${serverId}/metrics?${params.toString()}`)
+    .then(r => r.metrics)
 }
 
 export async function serverAction(

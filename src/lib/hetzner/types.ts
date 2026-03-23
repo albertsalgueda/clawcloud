@@ -36,6 +36,21 @@ export interface HetznerAction {
   progress: number
 }
 
+export type HetznerMetricType = 'cpu' | 'disk' | 'network'
+
+export interface HetznerMetricSeries {
+  values: Array<[number, string]>
+}
+
+export interface HetznerMetricsResponse {
+  metrics: {
+    start: string
+    end: string
+    step: number
+    time_series: Record<string, HetznerMetricSeries>
+  }
+}
+
 export class HetznerApiError extends Error {
   constructor(
     public status: number,
