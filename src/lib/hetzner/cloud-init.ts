@@ -25,7 +25,7 @@ CUSTOMER_ID=${params.customerId}
 `
 }
 
-function buildCaddyfile(): string {
+function buildCaddyfile(hostname: string): string {
   const routes = `    handle /gateway/* {
         uri strip_prefix /gateway
         reverse_proxy localhost:18789
@@ -41,8 +41,7 @@ function buildCaddyfile(): string {
         -Content-Security-Policy
     }`
 
-  return `:443 {
-    tls internal
+  return `${hostname} {
 ${routes}
 }
 
@@ -95,7 +94,7 @@ export function generateCloudInit(params: CloudInitParams): string {
   const envFile = b64(buildEnvFile(params))
   const openclawEnv = b64(buildOpenClawEnv(params))
   const configFile = b64(params.openclawConfig)
-  const caddyFile = b64(buildCaddyfile())
+  const caddyFile = b64(buildCaddyfile(hostname))
   const ttydService = b64(buildTtydService())
   const gatewayService = b64(buildGatewayService())
 

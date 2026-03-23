@@ -60,8 +60,8 @@ describe('cloudflare dns helpers', () => {
       type: 'A',
       name: 'demo.example.com',
       content: '1.2.3.4',
-      ttl: 1,
-      proxied: true,
+      ttl: 60,
+      proxied: false,
     })
   })
 
