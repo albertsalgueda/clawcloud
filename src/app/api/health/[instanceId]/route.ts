@@ -2,10 +2,6 @@ import { NextResponse } from 'next/server'
 import { requireAuth } from '@/lib/auth'
 import { supabaseAdmin } from '@/lib/supabase/admin'
 import { checkInstanceHealth } from '@/lib/openclaw/health'
-import { createDnsRecord, isDnsConfigured } from '@/lib/dns/cloudflare'
-import { logInstanceEvent } from '@/lib/control-plane'
-
-const INSTANCE_DOMAIN = process.env.INSTANCE_DOMAIN ?? 'agentcomputers.app'
 
 async function isDashboardReachable(url: string): Promise<boolean> {
   try {
@@ -49,31 +45,10 @@ export async function GET(
     updates.provisioned_at = new Date().toISOString()
   }
 
-  let dashboardReachable = false
   if (instance.dashboard_url) {
-    dashboardReachable = await isDashboardReachable(instance.dashboard_url)
-    if (!dashboardReachable) {
+    const reachable = await isDashboardReachable(instance.dashboard_url)
+    if (!reachable) {
       updates.dashboard_url = null
-    }
-  }
-
-  if (!instance.dashboard_url && instance.ip_address && health.status === 'healthy' && isDnsConfigured()) {
-    try {
-      const dns = await createDnsRecord(instance.slug, instance.ip_address)
-      if (dns.success) {
-        const candidateUrl = `https://${instance.slug}.${INSTANCE_DOMAIN}`
-        const reachable = await isDashboardReachable(candidateUrl)
-        if (reachable) {
-          updates.dashboard_url = candidateUrl
-          await logInstanceEvent(instanceId, 'dns_created', {
-            record_id: dns.id,
-            hostname: `${instance.slug}.${INSTANCE_DOMAIN}`,
-            source: 'health_check_retry',
-          })
-        }
-      }
-    } catch (err) {
-      console.error('DNS retry during health check failed:', err)
     }
   }
 
