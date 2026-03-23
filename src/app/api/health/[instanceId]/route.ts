@@ -2,6 +2,10 @@ import { NextResponse } from 'next/server'
 import { requireAuth } from '@/lib/auth'
 import { supabaseAdmin } from '@/lib/supabase/admin'
 import { checkInstanceHealth } from '@/lib/openclaw/health'
+import { createDnsRecord, isDnsConfigured } from '@/lib/dns/cloudflare'
+import { logInstanceEvent } from '@/lib/control-plane'
+
+const INSTANCE_DOMAIN = process.env.INSTANCE_DOMAIN ?? 'agentcomputers.app'
 
 export async function GET(
   _req: Request,
@@ -34,6 +38,22 @@ export async function GET(
   if (instance.status === 'provisioning' && health.status === 'healthy') {
     updates.status = 'running'
     updates.provisioned_at = new Date().toISOString()
+  }
+
+  if (!instance.dashboard_url && instance.ip_address && health.status === 'healthy' && isDnsConfigured()) {
+    try {
+      const dns = await createDnsRecord(instance.slug, instance.ip_address)
+      if (dns.success) {
+        updates.dashboard_url = `https://${instance.slug}.${INSTANCE_DOMAIN}`
+        await logInstanceEvent(instanceId, 'dns_created', {
+          record_id: dns.id,
+          hostname: `${instance.slug}.${INSTANCE_DOMAIN}`,
+          source: 'health_check_retry',
+        })
+      }
+    } catch (err) {
+      console.error('DNS retry during health check failed:', err)
+    }
   }
 
   await supabaseAdmin

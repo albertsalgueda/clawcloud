@@ -53,6 +53,24 @@ export async function provisionInstance(
     },
   })
 
+  let dnsSuccess = false
+  if (isDnsConfigured()) {
+    try {
+      const dns = await createDnsRecord(instance.slug, server.public_net.ipv4.ip)
+      dnsSuccess = dns.success
+      if (dns.success) {
+        await logInstanceEvent(instance.id, 'dns_created', {
+          record_id: dns.id,
+          hostname: `${instance.slug}.${INSTANCE_DOMAIN}`,
+        })
+      } else {
+        console.error('DNS record creation returned failure for', instance.slug)
+      }
+    } catch (err) {
+      console.error('DNS record creation failed:', err)
+    }
+  }
+
   const { error: updateError } = await supabaseAdmin
     .from('instances')
     .update({
@@ -60,27 +78,13 @@ export async function provisionInstance(
       hetzner_server_type: plan.hetzner_type,
       ip_address: server.public_net.ipv4.ip,
       gateway_token: gatewayToken,
-      dashboard_url: dashboardUrl,
+      dashboard_url: dnsSuccess ? dashboardUrl : null,
     })
     .eq('id', instance.id)
 
   if (updateError) {
     console.error('Failed to update instance after server creation:', updateError)
     throw new Error(`Instance DB update failed: ${updateError.message}`)
-  }
-
-  if (isDnsConfigured()) {
-    try {
-      const dns = await createDnsRecord(instance.slug, server.public_net.ipv4.ip)
-      if (dns.success) {
-        await logInstanceEvent(instance.id, 'dns_created', {
-          record_id: dns.id,
-          hostname: `${instance.slug}.${INSTANCE_DOMAIN}`,
-        })
-      }
-    } catch (err) {
-      console.error('DNS record creation failed:', err)
-    }
   }
 
   await logInstanceEvent(instance.id, 'server_created', {

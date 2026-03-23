@@ -139,8 +139,7 @@ describe('control plane provisioning', () => {
       expect.objectContaining({
         gatewayToken: 'gateway-token-123',
         dashboardUrl: 'https://demo.agent.example',
-        aiGatewayApiKey: 'vck_123',
-        stripeRestrictedKey: 'rk_123',
+        proxyBaseUrl: 'https://agentcomputers.app/api/gateway/proxy',
       })
     )
     expect(mockGenerateCloudInit).toHaveBeenCalledWith(

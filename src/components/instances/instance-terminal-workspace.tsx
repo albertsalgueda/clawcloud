@@ -1,11 +1,12 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { ExternalLink, LoaderCircle, Plus, RefreshCw, TerminalSquare, X } from 'lucide-react'
-import { Button, buttonVariants } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import { getInstanceTerminalConnection } from '@/lib/terminal'
 import type { Instance } from '@/types/instance'
+
+const LOAD_TIMEOUT_MS = 8000
 
 interface InstanceTerminalWorkspaceProps {
   instance: Instance
@@ -31,6 +32,18 @@ export function InstanceTerminalWorkspace({
   const [activeSessionId, setActiveSessionId] = useState('terminal-1')
   const [nextSessionNumber, setNextSessionNumber] = useState(2)
   const [loadedSessions, setLoadedSessions] = useState<Record<string, boolean>>({})
+  const [useFallback, setUseFallback] = useState(false)
+  const loadTimers = useRef<Record<string, ReturnType<typeof setTimeout>>>({})
+
+  const terminalUrl = useFallback && connection.directUrl
+    ? connection.directUrl
+    : connection.preferredUrl
+
+  useEffect(() => {
+    return () => {
+      Object.values(loadTimers.current).forEach(clearTimeout)
+    }
+  }, [])
 
   if (instance.status !== 'running') {
     return (
@@ -50,7 +63,7 @@ export function InstanceTerminalWorkspace({
     )
   }
 
-  if (!connection.preferredUrl) {
+  if (!terminalUrl) {
     return (
       <div className="flex min-h-[28rem] items-center justify-center rounded-xl border bg-card p-8 text-center">
         <div className="max-w-sm space-y-3">
@@ -64,8 +77,23 @@ export function InstanceTerminalWorkspace({
     )
   }
 
-  const terminalUrl = connection.preferredUrl
   const activeSession = sessions.find((s) => s.id === activeSessionId) ?? sessions[0]
+
+  function startLoadTimer(sessionId: string) {
+    clearTimeout(loadTimers.current[sessionId])
+    if (!useFallback && connection.directUrl && connection.mode === 'proxied') {
+      loadTimers.current[sessionId] = setTimeout(() => {
+        setUseFallback(true)
+        setLoadedSessions({})
+        setSessions((prev) => prev.map((s) => ({ ...s, version: s.version + 1 })))
+      }, LOAD_TIMEOUT_MS)
+    }
+  }
+
+  function handleLoad(sessionId: string) {
+    clearTimeout(loadTimers.current[sessionId])
+    setLoadedSessions((prev) => ({ ...prev, [sessionId]: true }))
+  }
 
   function createNewSession() {
     const session = createSession(nextSessionNumber)
@@ -84,6 +112,7 @@ export function InstanceTerminalWorkspace({
 
   function closeSession(sessionId: string) {
     if (sessions.length === 1) return
+    clearTimeout(loadTimers.current[sessionId])
     const idx = sessions.findIndex((s) => s.id === sessionId)
     const remaining = sessions.filter((s) => s.id !== sessionId)
     setSessions(remaining)
@@ -99,9 +128,7 @@ export function InstanceTerminalWorkspace({
 
   return (
     <div className={cn('flex flex-col gap-0 overflow-hidden rounded-xl border bg-[#0a0a0a]', className)}>
-      {/* Toolbar */}
       <div className="flex items-center gap-1 border-b border-white/10 bg-[#111] px-2 py-1.5">
-        {/* Tabs */}
         <div className="flex min-w-0 flex-1 items-center gap-1 overflow-x-auto">
           {sessions.map((session) => {
             const isActive = session.id === activeSession.id
@@ -145,7 +172,6 @@ export function InstanceTerminalWorkspace({
           </button>
         </div>
 
-        {/* Actions */}
         <div className="flex items-center gap-1">
           <button
             type="button"
@@ -156,7 +182,7 @@ export function InstanceTerminalWorkspace({
             <RefreshCw className="h-3.5 w-3.5" />
           </button>
           <a
-            href={connection.preferredUrl}
+            href={terminalUrl}
             target="_blank"
             rel="noopener noreferrer"
             className="rounded-md p-1.5 text-white/40 transition-colors hover:bg-white/5 hover:text-white/70"
@@ -167,7 +193,6 @@ export function InstanceTerminalWorkspace({
         </div>
       </div>
 
-      {/* Terminal iframe area */}
       <div className="relative min-h-[calc(100dvh-16rem)] bg-[#0a0a0a]">
         {sessions.map((session) => {
           const isActive = session.id === activeSession.id
@@ -191,13 +216,14 @@ export function InstanceTerminalWorkspace({
               )}
 
               <iframe
-                key={`${session.id}:${session.version}`}
+                key={`${session.id}:${session.version}:${terminalUrl}`}
                 src={terminalUrl}
                 title={session.title}
                 className="block h-full w-full"
                 style={{ colorScheme: 'dark', background: '#0a0a0a' }}
                 allow="clipboard-read; clipboard-write; fullscreen"
-                onLoad={() => setLoadedSessions((prev) => ({ ...prev, [session.id]: true }))}
+                ref={(el) => { if (el && isActive) startLoadTimer(session.id) }}
+                onLoad={() => handleLoad(session.id)}
               />
             </div>
           )

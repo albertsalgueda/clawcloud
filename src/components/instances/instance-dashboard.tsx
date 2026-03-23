@@ -1,19 +1,46 @@
 'use client'
 
 import { ExternalLink, LoaderCircle } from 'lucide-react'
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { buttonVariants } from '@/components/ui/button'
 import type { Instance } from '@/types/instance'
 
+const LOAD_TIMEOUT_MS = 8000
+
+function buildDashboardUrl(base: string, token: string | null): string {
+  return token ? `${base}/#token=${token}` : base
+}
+
 export function InstanceDashboard({ instance }: { instance: Instance }) {
-  const baseUrl = instance.dashboard_url ?? (instance.ip_address ? `http://${instance.ip_address}` : null)
-  const dashboardUrl = baseUrl
-    ? instance.gateway_token
-      ? `${baseUrl}/#token=${instance.gateway_token}`
-      : baseUrl
+  const httpsBase = instance.dashboard_url ?? null
+  const ipBase = instance.ip_address ? `http://${instance.ip_address}` : null
+  const [useFallback, setUseFallback] = useState(false)
+  const [loaded, setLoaded] = useState(false)
+  const timerRef = useRef<ReturnType<typeof setTimeout>>(null)
+
+  const activeBase = useFallback ? (ipBase ?? httpsBase) : (httpsBase ?? ipBase)
+  const dashboardUrl = activeBase
+    ? buildDashboardUrl(activeBase, instance.gateway_token)
     : null
 
-  const [loaded, setLoaded] = useState(false)
+  useEffect(() => {
+    return () => { if (timerRef.current) clearTimeout(timerRef.current) }
+  }, [])
+
+  function startLoadTimer() {
+    if (timerRef.current) clearTimeout(timerRef.current)
+    if (!useFallback && httpsBase && ipBase) {
+      timerRef.current = setTimeout(() => {
+        setUseFallback(true)
+        setLoaded(false)
+      }, LOAD_TIMEOUT_MS)
+    }
+  }
+
+  function handleLoad() {
+    if (timerRef.current) clearTimeout(timerRef.current)
+    setLoaded(true)
+  }
 
   if (!dashboardUrl) {
     return (
@@ -52,12 +79,14 @@ export function InstanceDashboard({ instance }: { instance: Instance }) {
           </div>
         )}
         <iframe
+          key={dashboardUrl}
           src={dashboardUrl}
           className="h-[calc(100dvh-14rem)] w-full"
           style={{ colorScheme: 'dark', background: 'var(--background, #0a0a0a)' }}
           title="OpenClaw Dashboard"
           allow="clipboard-read; clipboard-write"
-          onLoad={() => setLoaded(true)}
+          ref={(el) => { if (el) startLoadTimer() }}
+          onLoad={handleLoad}
         />
       </div>
     </div>
