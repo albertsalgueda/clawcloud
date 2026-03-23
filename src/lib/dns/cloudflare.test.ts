@@ -60,8 +60,8 @@ describe('cloudflare dns helpers', () => {
       type: 'A',
       name: 'demo.example.com',
       content: '1.2.3.4',
-      ttl: 60,
-      proxied: false,
+      ttl: 1,
+      proxied: true,
     })
   })
 
@@ -80,7 +80,7 @@ describe('cloudflare dns helpers', () => {
 
     expect(JSON.parse(mockFetch.mock.calls[0][1].body as string)).toEqual(
       expect.objectContaining({
-        name: 'demo.clawcloud.dev',
+        name: 'demo.agentcomputers.app',
       })
     )
   })

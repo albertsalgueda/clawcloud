@@ -27,8 +27,8 @@ export async function createDnsRecord(
       type: 'A',
       name,
       content: ip,
-      ttl: 60,
-      proxied: false,
+      ttl: 1,
+      proxied: true,
     }),
   })
 

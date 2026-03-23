@@ -3,29 +3,14 @@
 import { ExternalLink, LoaderCircle } from 'lucide-react'
 import { useState } from 'react'
 import { buttonVariants } from '@/components/ui/button'
-import { usePolling } from '@/hooks/use-polling'
 import type { Instance } from '@/types/instance'
 
-function buildDashboardUrl(base: string, token: string | null): string {
-  return token ? `${base}/#token=${token}` : base
-}
-
-export function InstanceDashboard({ instance: initial }: { instance: Instance }) {
-  const { data: polledInstance } = usePolling<{ instance: Instance }>(
-    `/api/instances/${initial.id}`,
-    10000,
-  )
-  const instance = polledInstance?.instance ?? initial
-
-  usePolling<unknown>(
-    instance.ip_address ? `/api/health/${instance.id}` : null,
-    15000,
-  )
-
-  const baseUrl = instance.dashboard_url
-    ?? (instance.ip_address ? `http://${instance.ip_address}` : null)
+export function InstanceDashboard({ instance }: { instance: Instance }) {
+  const baseUrl = instance.dashboard_url ?? (instance.ip_address ? `http://${instance.ip_address}` : null)
   const dashboardUrl = baseUrl
-    ? buildDashboardUrl(baseUrl, instance.gateway_token)
+    ? instance.gateway_token
+      ? `${baseUrl}/#token=${instance.gateway_token}`
+      : baseUrl
     : null
 
   const [loaded, setLoaded] = useState(false)

@@ -3,15 +3,6 @@ import { requireAuth } from '@/lib/auth'
 import { supabaseAdmin } from '@/lib/supabase/admin'
 import { checkInstanceHealth } from '@/lib/openclaw/health'
 
-async function isDashboardReachable(url: string): Promise<boolean> {
-  try {
-    await fetch(url, { method: 'HEAD', signal: AbortSignal.timeout(4000), redirect: 'follow' })
-    return true
-  } catch {
-    return false
-  }
-}
-
 export async function GET(
   _req: Request,
   { params }: { params: Promise<{ instanceId: string }> }
@@ -43,13 +34,6 @@ export async function GET(
   if (instance.status === 'provisioning' && health.status === 'healthy') {
     updates.status = 'running'
     updates.provisioned_at = new Date().toISOString()
-  }
-
-  if (instance.dashboard_url) {
-    const reachable = await isDashboardReachable(instance.dashboard_url)
-    if (!reachable) {
-      updates.dashboard_url = null
-    }
   }
 
   await supabaseAdmin

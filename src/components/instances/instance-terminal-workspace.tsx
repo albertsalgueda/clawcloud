@@ -4,7 +4,6 @@ import { useState } from 'react'
 import { ExternalLink, LoaderCircle, Plus, RefreshCw, TerminalSquare, X } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { getInstanceTerminalConnection } from '@/lib/terminal'
-import { usePolling } from '@/hooks/use-polling'
 import type { Instance } from '@/types/instance'
 
 interface InstanceTerminalWorkspaceProps {
@@ -23,20 +22,9 @@ function createSession(index: number): TerminalSession {
 }
 
 export function InstanceTerminalWorkspace({
-  instance: initial,
+  instance,
   className,
 }: InstanceTerminalWorkspaceProps) {
-  const { data: polledInstance } = usePolling<{ instance: Instance }>(
-    `/api/instances/${initial.id}`,
-    10000,
-  )
-  const instance = polledInstance?.instance ?? initial
-
-  usePolling<unknown>(
-    instance.ip_address ? `/api/health/${instance.id}` : null,
-    15000,
-  )
-
   const connection = getInstanceTerminalConnection(instance)
   const [sessions, setSessions] = useState<TerminalSession[]>([createSession(1)])
   const [activeSessionId, setActiveSessionId] = useState('terminal-1')
@@ -198,7 +186,7 @@ export function InstanceTerminalWorkspace({
               )}
 
               <iframe
-                key={`${session.id}:${session.version}:${terminalUrl}`}
+                key={`${session.id}:${session.version}`}
                 src={terminalUrl}
                 title={session.title}
                 className="block h-full w-full"
