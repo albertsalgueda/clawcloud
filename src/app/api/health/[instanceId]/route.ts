@@ -7,6 +7,15 @@ import { logInstanceEvent } from '@/lib/control-plane'
 
 const INSTANCE_DOMAIN = process.env.INSTANCE_DOMAIN ?? 'agentcomputers.app'
 
+async function isDashboardReachable(url: string): Promise<boolean> {
+  try {
+    await fetch(url, { method: 'HEAD', signal: AbortSignal.timeout(4000), redirect: 'follow' })
+    return true
+  } catch {
+    return false
+  }
+}
+
 export async function GET(
   _req: Request,
   { params }: { params: Promise<{ instanceId: string }> }
@@ -40,16 +49,28 @@ export async function GET(
     updates.provisioned_at = new Date().toISOString()
   }
 
+  let dashboardReachable = false
+  if (instance.dashboard_url) {
+    dashboardReachable = await isDashboardReachable(instance.dashboard_url)
+    if (!dashboardReachable) {
+      updates.dashboard_url = null
+    }
+  }
+
   if (!instance.dashboard_url && instance.ip_address && health.status === 'healthy' && isDnsConfigured()) {
     try {
       const dns = await createDnsRecord(instance.slug, instance.ip_address)
       if (dns.success) {
-        updates.dashboard_url = `https://${instance.slug}.${INSTANCE_DOMAIN}`
-        await logInstanceEvent(instanceId, 'dns_created', {
-          record_id: dns.id,
-          hostname: `${instance.slug}.${INSTANCE_DOMAIN}`,
-          source: 'health_check_retry',
-        })
+        const candidateUrl = `https://${instance.slug}.${INSTANCE_DOMAIN}`
+        const reachable = await isDashboardReachable(candidateUrl)
+        if (reachable) {
+          updates.dashboard_url = candidateUrl
+          await logInstanceEvent(instanceId, 'dns_created', {
+            record_id: dns.id,
+            hostname: `${instance.slug}.${INSTANCE_DOMAIN}`,
+            source: 'health_check_retry',
+          })
+        }
       }
     } catch (err) {
       console.error('DNS retry during health check failed:', err)
