@@ -63,7 +63,7 @@ After=network.target
 [Service]
 Type=simple
 User=openclaw
-ExecStart=/snap/bin/ttyd -p 7681 -W -t fontSize=14 -t theme={"background":"#0a0a0a","foreground":"#e0e0e0"} bash
+ExecStart=/snap/bin/ttyd -p 7681 -W -w /home/openclaw/workspace -t rendererType=canvas -t fontSize=14 -t lineHeight=1.25 -t cursorBlink=true -t disableLeaveAlert=true -t disableResizeOverlay=true -t titleFixed=ClawCloud\ Terminal -t theme={"background":"#050816","foreground":"#d6e4ff","cursor":"#7dd3fc","selectionBackground":"#1d4ed8","black":"#0f172a","red":"#f87171","green":"#34d399","yellow":"#fbbf24","blue":"#60a5fa","magenta":"#c084fc","cyan":"#22d3ee","white":"#e2e8f0","brightBlack":"#475569","brightRed":"#fca5a5","brightGreen":"#6ee7b7","brightYellow":"#fcd34d","brightBlue":"#93c5fd","brightMagenta":"#d8b4fe","brightCyan":"#67e8f9","brightWhite":"#f8fafc"} bash
 Restart=always
 RestartSec=5
 

@@ -1,7 +1,7 @@
 import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
 
-const STATIC_SEGMENTS = new Set(['instances', 'billing', 'settings', 'api', 'login', 'signup', 'callback', '_next'])
+const STATIC_SEGMENTS = new Set(['instances', 'billing', 'settings', 'api', 'login', 'signup', 'callback', 'forgot-password', 'reset-password', '_next'])
 
 export async function updateSession(request: NextRequest) {
   let supabaseResponse = NextResponse.next({ request })
@@ -31,7 +31,9 @@ export async function updateSession(request: NextRequest) {
 
   const isAuthRoute = request.nextUrl.pathname.startsWith('/login') ||
     request.nextUrl.pathname.startsWith('/signup') ||
-    request.nextUrl.pathname.startsWith('/callback')
+    request.nextUrl.pathname.startsWith('/callback') ||
+    request.nextUrl.pathname.startsWith('/forgot-password') ||
+    request.nextUrl.pathname.startsWith('/reset-password')
 
   const isPublicRoute = request.nextUrl.pathname === '/' ||
     isAuthRoute ||
@@ -44,7 +46,9 @@ export async function updateSession(request: NextRequest) {
     return NextResponse.redirect(url)
   }
 
-  if (user && isAuthRoute) {
+  const skipRedirectForAuth = request.nextUrl.pathname.startsWith('/reset-password')
+
+  if (user && isAuthRoute && !skipRedirectForAuth) {
     const orgSlug = request.cookies.get('clawcloud-org')?.value
     const url = request.nextUrl.clone()
     url.pathname = orgSlug ? `/${orgSlug}/instances` : '/'
