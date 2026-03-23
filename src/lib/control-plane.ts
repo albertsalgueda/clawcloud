@@ -53,7 +53,7 @@ export async function provisionInstance(
     },
   })
 
-  await supabaseAdmin
+  const { error: updateError } = await supabaseAdmin
     .from('instances')
     .update({
       hetzner_server_id: server.id,
@@ -61,9 +61,13 @@ export async function provisionInstance(
       ip_address: server.public_net.ipv4.ip,
       gateway_token: gatewayToken,
       dashboard_url: dashboardUrl,
-      config_version: 2,
     })
     .eq('id', instance.id)
+
+  if (updateError) {
+    console.error('Failed to update instance after server creation:', updateError)
+    throw new Error(`Instance DB update failed: ${updateError.message}`)
+  }
 
   if (isDnsConfigured()) {
     try {
