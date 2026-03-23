@@ -10,9 +10,11 @@ export default async function InstanceLayout({
   const { orgSlug, instanceId } = await params
 
   return (
-    <div>
+    <div className="flex min-h-full flex-col">
       <InstanceTabs instanceId={instanceId} orgSlug={orgSlug} />
-      {children}
+      <div className="min-h-0 flex-1">
+        {children}
+      </div>
     </div>
   )
 }
