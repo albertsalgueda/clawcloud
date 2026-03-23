@@ -34,7 +34,7 @@ export async function provisionInstance(
     slug: instance.slug,
     proxyBaseUrl,
     openclawConfig: JSON.stringify(openclawConfig, null, 2),
-    openclawVersion: process.env.OPENCLAW_VERSION ?? 'latest',
+    openclawVersion: process.env.OPENCLAW_VERSION ?? '2026.3.13',
     gatewayToken,
     domain: INSTANCE_DOMAIN,
   })

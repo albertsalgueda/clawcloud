@@ -156,8 +156,8 @@ runcmd:
   - mkdir -p /home/openclaw/.npm /home/openclaw/workspace
   - chown -R openclaw:openclaw /home/openclaw
 
-  # OpenClaw (native install as openclaw user)
-  - su - openclaw -c 'curl -fsSL https://openclaw.ai/install.sh | bash'
+  # OpenClaw (native install as openclaw user, pinned version for UI asset compatibility)
+  - su - openclaw -c 'npm install -g openclaw@${params.openclawVersion}'
 
   # Add npm-global bin to PATH for both login shells (.profile) and interactive shells (.bashrc)
   - su - openclaw -c 'echo "export PATH=\\$HOME/.npm-global/bin:\\$PATH" >> ~/.profile && echo "export PATH=\\$HOME/.npm-global/bin:\\$PATH" >> ~/.bashrc'
